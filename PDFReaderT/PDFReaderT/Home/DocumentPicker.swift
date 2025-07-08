@@ -9,7 +9,6 @@ import UniformTypeIdentifiers
 import UIKit
 
 struct DocumentPicker: UIViewControllerRepresentable {
-    
     @Binding var selectedURL: URL?
     @Binding var isPresented: Bool
     
@@ -35,6 +34,9 @@ struct DocumentPicker: UIViewControllerRepresentable {
         
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             guard let url = urls.first else { return }
+            
+            // IMPORTANT: Don't stop accessing security-scoped resource yet
+            // We need to create the bookmark while we still have access
             parent.selectedURL = url
             parent.isPresented = false
         }
