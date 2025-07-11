@@ -74,6 +74,12 @@ struct PDFReaderView: View {
                     Button("Select PDF") {
                         showingDocumentPicker = true
                     }
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.black)
+                    .frame(height: 40.0)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.green)
+                    .cornerRadius(8.0)
                     .padding()
                 }
             }

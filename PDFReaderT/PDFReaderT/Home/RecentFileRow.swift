@@ -15,12 +15,12 @@ struct RecentFileRow: View {
         Button(action: onTap) {
             HStack {
                 Image(systemName: "doc.text.fill")
-                    .foregroundColor(.red)
+                    .foregroundColor(.green)
                     .font(.title2)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(file.name)
-                        .font(.body)
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.primary)
                         .lineLimit(1)
                     
