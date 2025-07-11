@@ -14,4 +14,6 @@ struct RecentFile: Codable, Identifiable {
     let bookmarkData: Data
     let dateAdded: Date
     let fileSize: String
+    var lastPageNumber: Int
+    var totalPages: Int
 }

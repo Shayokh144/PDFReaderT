@@ -8,7 +8,6 @@
 import SwiftUI
 
 struct RecentFileRow: View {
-    
     let file: RecentFile
     let onTap: () -> Void
     
@@ -29,6 +28,17 @@ struct RecentFileRow: View {
                         Text(file.fileSize)
                             .font(.caption)
                             .foregroundColor(.secondary)
+                        
+                        // Show page info if available
+                        if file.totalPages > 0 {
+                            Text("•")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Text("Page \(file.lastPageNumber + 1) of \(file.totalPages)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                         
                         Spacer()
                         

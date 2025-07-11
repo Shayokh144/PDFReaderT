@@ -5,18 +5,42 @@
 //  Created by S M Taher on 8/7/25.
 //
 
+import PDFKit
 import SwiftUI
 
 struct PDFReaderView: View {
     @State private var selectedPDFURL: URL?
     @State private var showingDocumentPicker = false
     @State private var recentFiles: [RecentFile] = []
+    @State private var currentPage: Int = 0
+    @State private var totalPages: Int = 0
+    @State private var initialPage: Int? = nil
+    @State private var currentFileId: UUID? = nil
+    @State private var pageSaveTimer: Timer?
     
     var body: some View {
         NavigationView {
             VStack {
                 if let pdfURL = selectedPDFURL {
-                    PDFViewer(url: pdfURL)
+                    PDFViewer(
+                        url: pdfURL,
+                        initialPage: initialPage,
+                        currentPage: $currentPage
+                    )
+                    .overlay(alignment: .bottomTrailing) {
+                        Text("\(currentPage)/\(totalPages)")
+                            .padding(8.0)
+                            .background(Color.gray.opacity(0.7))
+                            .cornerRadius(8.0)
+                            .padding(8.0)
+                    }
+                    .onAppear {
+                        startPageSaveTimer()
+                    }
+                    .onDisappear {
+                        stopPageSaveTimer()
+                        saveCurrentPage()
+                    }
                 } else {
                     VStack(spacing: 20) {
                         ContentUnavailableView(
@@ -60,6 +84,8 @@ struct PDFReaderView: View {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Close") {
                             selectedPDFURL = nil
+                            currentFileId = nil
+                            initialPage = nil
                         }
                     }
                 }
@@ -72,11 +98,43 @@ struct PDFReaderView: View {
             }
             .onChange(of: selectedPDFURL) { newURL in
                 if let url = newURL {
+                    currentPage = 0
+                    initialPage = nil
+                    currentFileId = nil
                     saveRecentFile(url)
                 }
             }
         }
     }
+    
+    private func startPageSaveTimer() {
+        pageSaveTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
+            saveCurrentPage()
+        }
+    }
+    
+    private func stopPageSaveTimer() {
+        pageSaveTimer?.invalidate()
+        pageSaveTimer = nil
+    }
+    
+    private func saveCurrentPage() {
+        print("XYZ saveCurrentPage")
+
+        guard let fileId = currentFileId,
+              let index = recentFiles.firstIndex(where: { $0.id == fileId }) else {
+            print("XYZ saveCurrentPage  not found")
+            return
+        }
+        
+        var updatedFile = recentFiles[index]
+        updatedFile.lastPageNumber = currentPage
+        recentFiles[index] = updatedFile
+        
+        saveRecentFilesToUserDefaults()
+        print("XYZ Saved current page: \(currentPage) for file: \(updatedFile.name)")
+    }
+
     
     private func openRecentFile(_ file: RecentFile) {
         guard let url = URL.resolveBookmark(file.bookmarkData) else {
@@ -84,6 +142,8 @@ struct PDFReaderView: View {
             removeRecentFile(file)
             return
         }
+        initialPage = file.lastPageNumber
+        currentFileId = file.id
         selectedPDFURL = url
     }
     
@@ -111,6 +171,9 @@ struct PDFReaderView: View {
             print("XYZ NO BOOK MARK FOUND")
             return
         }
+        if let document = PDFDocument(url: url) {
+            totalPages = document.pageCount
+        }
         
         let fileName = url.lastPathComponent
         let fileSize = getFileSize(url)
@@ -120,9 +183,12 @@ struct PDFReaderView: View {
             name: fileName,
             bookmarkData: bookmarkData,
             dateAdded: Date(),
-            fileSize: fileSize
+            fileSize: fileSize,
+            lastPageNumber: 0,
+            totalPages: totalPages
         )
         
+        currentFileId = recentFile.id
         // Remove existing entry if it exists
         recentFiles.removeAll { $0.name == fileName }
         
