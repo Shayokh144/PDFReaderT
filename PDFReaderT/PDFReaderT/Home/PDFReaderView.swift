@@ -9,6 +9,9 @@ import PDFKit
 import SwiftUI
 
 struct PDFReaderView: View {
+    
+    @Environment(\.scenePhase) private var scenePhase
+    
     @State private var selectedPDFURL: URL?
     @State private var showingDocumentPicker = false
     @State private var recentFiles: [RecentFile] = []
@@ -89,6 +92,7 @@ struct PDFReaderView: View {
                 if selectedPDFURL != nil {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Close") {
+                            saveCurrentPage()
                             selectedPDFURL = nil
                             currentFileId = nil
                             initialPage = nil
@@ -102,12 +106,17 @@ struct PDFReaderView: View {
             .onAppear {
                 loadRecentFiles()
             }
-            .onChange(of: selectedPDFURL) { newURL in
+            .onChange(of: selectedPDFURL) { _, newURL in
                 if let url = newURL {
                     currentPage = 0
-                    initialPage = nil
                     currentFileId = nil
+                    initialPage = nil
                     saveRecentFile(url)
+                }
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .background {
+                    saveCurrentPage()
                 }
             }
         }
@@ -125,11 +134,11 @@ struct PDFReaderView: View {
     }
     
     private func saveCurrentPage() {
-        print("XYZ saveCurrentPage")
+        print("XYZ ond saveCurrentPage \(currentFileId)")
 
         guard let fileId = currentFileId,
               let index = recentFiles.firstIndex(where: { $0.id == fileId }) else {
-            print("XYZ saveCurrentPage  not found")
+            print("XYZ ond saveCurrentPage  not found")
             return
         }
         
@@ -138,7 +147,7 @@ struct PDFReaderView: View {
         recentFiles[index] = updatedFile
         
         saveRecentFilesToUserDefaults()
-        print("XYZ Saved current page: \(currentPage) for file: \(updatedFile.name)")
+        print("XYZ ond Saved current page: \(currentPage) for file: \(updatedFile.name)")
     }
 
     
