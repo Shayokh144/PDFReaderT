@@ -58,17 +58,19 @@ struct PDFReaderView: View {
                                     .font(.headline)
                                     .padding(.horizontal)
                                 
-                                ScrollView {
-                                    LazyVStack(spacing: 8) {
-                                        ForEach(recentFiles) { file in
-                                            RecentFileRow(file: file) {
-                                                openRecentFile(file)
-                                            }
+                                List {
+                                    ForEach(recentFiles) { file in
+                                        RecentFileRow(file: file) {
+                                            openRecentFile(file)
                                         }
+                                        .listRowInsets(EdgeInsets())
+                                        .listRowSeparator(.hidden)
+                                        .padding(.horizontal)
+                                        .padding(.vertical, 4.0)
                                     }
-                                    .padding(.horizontal)
+                                    .onDelete(perform: deleteFile)
                                 }
-                                .frame(maxHeight: 200)
+                                .listStyle(PlainListStyle())
                             }
                         }
                     }
@@ -122,6 +124,11 @@ struct PDFReaderView: View {
         }
     }
     
+    private func deleteFile(at offsets: IndexSet) {
+        recentFiles.remove(atOffsets: offsets)
+        saveRecentFilesToUserDefaults()
+    }
+    
     private func startPageSaveTimer() {
         pageSaveTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
             saveCurrentPage()
@@ -134,8 +141,6 @@ struct PDFReaderView: View {
     }
     
     private func saveCurrentPage() {
-        print("XYZ ond saveCurrentPage \(currentFileId)")
-
         guard let fileId = currentFileId,
               let index = recentFiles.firstIndex(where: { $0.id == fileId }) else {
             print("XYZ ond saveCurrentPage  not found")
