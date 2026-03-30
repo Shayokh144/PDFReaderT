@@ -41,7 +41,7 @@ struct RecentFileRow: View {
                         }
                         
                         Spacer()
-                        
+                        // By using .relative, SwiftUI automatically calculates the difference between that date and the current time.
                         Text(file.dateAdded, style: .relative)
                             .font(.caption)
                             .foregroundColor(.secondary)

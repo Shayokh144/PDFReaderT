@@ -215,10 +215,10 @@ struct PDFReaderView: View {
         // Add to beginning of array
         recentFiles.insert(recentFile, at: 0)
         
-        // Keep only the last 10 files
-        if recentFiles.count > 10 {
-            recentFiles = Array(recentFiles.prefix(10))
-        }
+//        // Keep only the last 10 files
+//        if recentFiles.count > 10 {
+//            recentFiles = Array(recentFiles.prefix(10))
+//        }
         
         // Save to UserDefaults
         saveRecentFilesToUserDefaults()
