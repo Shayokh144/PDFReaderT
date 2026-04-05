@@ -31,11 +31,17 @@ struct PDFReaderView: View {
                         currentPage: $currentPage
                     )
                     .overlay(alignment: .bottomTrailing) {
-                        Text(String(format: String(localized: "pdf_reader.page_counter"), currentPage, totalPages))
-                            .padding(8.0)
-                            .background(Color.gray.opacity(0.7))
-                            .cornerRadius(8.0)
-                            .padding(8.0)
+                        Text(
+                            String(
+                                format: String(localized: "pdf_reader.page_counter"),
+                                currentPage,
+                                totalPages
+                            )
+                        )
+                        .padding(8.0)
+                        .background(Color.gray.opacity(0.7))
+                        .cornerRadius(8.0)
+                        .padding(8.0)
                     }
                     .onAppear {
                         startPageSaveTimer()
@@ -154,7 +160,7 @@ struct PDFReaderView: View {
         saveRecentFilesToUserDefaults()
         print("XYZ ond Saved current page: \(currentPage) for file: \(updatedFile.name)")
     }
-
+    
     
     private func openRecentFile(_ file: RecentFile) {
         guard let url = URL.resolveBookmark(file.bookmarkData) else {
@@ -215,10 +221,10 @@ struct PDFReaderView: View {
         // Add to beginning of array
         recentFiles.insert(recentFile, at: 0)
         
-//        // Keep only the last 10 files
-//        if recentFiles.count > 10 {
-//            recentFiles = Array(recentFiles.prefix(10))
-//        }
+        //        // Keep only the last 10 files
+        //        if recentFiles.count > 10 {
+        //            recentFiles = Array(recentFiles.prefix(10))
+        //        }
         
         // Save to UserDefaults
         saveRecentFilesToUserDefaults()

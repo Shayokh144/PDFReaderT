@@ -35,9 +35,15 @@ struct RecentFileRow: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             
-                            Text(String(format: String(localized: "pdf_reader.recent_file_page_format"), file.lastPageNumber, file.totalPages))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            Text(
+                                String(
+                                    format: String(localized: "pdf_reader.recent_file_page_format"),
+                                    file.lastPageNumber,
+                                    file.totalPages
+                                )
+                            )
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                         }
                         
                         Spacer()
