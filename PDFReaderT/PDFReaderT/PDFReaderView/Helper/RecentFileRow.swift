@@ -38,7 +38,7 @@ struct RecentFileRow: View {
                             Text(
                                 String(
                                     format: String(localized: "pdf_reader.recent_file_page_format"),
-                                    file.lastPageNumber,
+                                    file.lastPageNumber + 1,
                                     file.totalPages
                                 )
                             )

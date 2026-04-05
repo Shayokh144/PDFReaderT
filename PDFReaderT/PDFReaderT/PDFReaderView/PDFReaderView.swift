@@ -34,7 +34,7 @@ struct PDFReaderView: View {
                         Text(
                             String(
                                 format: String(localized: "pdf_reader.page_counter"),
-                                currentPage,
+                                currentPage + 1,
                                 totalPages
                             )
                         )
