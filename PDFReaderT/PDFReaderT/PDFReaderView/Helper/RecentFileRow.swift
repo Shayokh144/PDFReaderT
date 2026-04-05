@@ -31,11 +31,11 @@ struct RecentFileRow: View {
                         
                         // Show page info if available
                         if file.totalPages > 0 {
-                            Text("•")
+                            Text("pdf_reader.list_separator")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             
-                            Text("Page \(file.lastPageNumber + 1) of \(file.totalPages)")
+                            Text(String(format: String(localized: "pdf_reader.recent_file_page_format"), file.lastPageNumber, file.totalPages))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }

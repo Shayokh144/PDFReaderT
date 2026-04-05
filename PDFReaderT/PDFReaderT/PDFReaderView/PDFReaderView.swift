@@ -31,7 +31,7 @@ struct PDFReaderView: View {
                         currentPage: $currentPage
                     )
                     .overlay(alignment: .bottomTrailing) {
-                        Text("\(currentPage)/\(totalPages)")
+                        Text(String(format: String(localized: "pdf_reader.page_counter"), currentPage, totalPages))
                             .padding(8.0)
                             .background(Color.gray.opacity(0.7))
                             .cornerRadius(8.0)
@@ -47,14 +47,14 @@ struct PDFReaderView: View {
                 } else {
                     VStack(spacing: 20) {
                         ContentUnavailableView(
-                            "No PDF Selected",
+                            String(localized: "pdf_reader.empty_title"),
                             systemImage: "doc.text",
-                            description: Text("Select a PDF file or choose from recent files")
+                            description: Text("pdf_reader.empty_description")
                         )
                         
                         if !recentFiles.isEmpty {
                             VStack(alignment: .leading, spacing: 10) {
-                                Text("Recent Files")
+                                Text("pdf_reader.recent_files")
                                     .font(.headline)
                                     .padding(.horizontal)
                                 
@@ -76,7 +76,7 @@ struct PDFReaderView: View {
                     }
                 }
                 if selectedPDFURL == nil {
-                    Button("Select PDF") {
+                    Button(String(localized: "pdf_reader.select_pdf")) {
                         showingDocumentPicker = true
                     }
                     .font(.system(size: 16, weight: .bold))
@@ -88,12 +88,12 @@ struct PDFReaderView: View {
                     .padding()
                 }
             }
-            .navigationTitle("PDF Reader")
+            .navigationTitle(String(localized: "pdf_reader.navigation_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if selectedPDFURL != nil {
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Close") {
+                        Button(String(localized: "pdf_reader.close")) {
                             saveCurrentPage()
                             selectedPDFURL = nil
                             currentFileId = nil
@@ -240,7 +240,7 @@ struct PDFReaderView: View {
         } catch {
             print("Error getting file size: \(error)")
         }
-        return "Unknown"
+        return String(localized: "pdf_reader.file_size_unknown")
     }
     
     private func loadRecentFiles() {
