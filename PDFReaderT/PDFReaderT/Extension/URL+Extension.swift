@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import OSLog
+
+private let log = AppLog.bookmarks
 
 extension URL {
     func bookmarkData() -> Data? {
@@ -26,7 +29,7 @@ extension URL {
                 relativeTo: nil
             )
         } catch {
-            print("Error creating bookmark: \(error)")
+            log.error("Error creating bookmark: \(error.localizedDescription)")
             
             // Try alternative method for files that might be in app's documents
             do {
@@ -36,7 +39,7 @@ extension URL {
                     relativeTo: nil
                 )
             } catch {
-                print("Alternative bookmark creation also failed: \(error)")
+                log.error("Alternative bookmark creation also failed: \(error.localizedDescription)")
                 return nil
             }
         }
@@ -53,12 +56,12 @@ extension URL {
             )
             
             if isStale {
-                print("Bookmark is stale, consider refreshing")
+                log.warning("Bookmark is stale, consider refreshing")
             }
             
             return url
         } catch {
-            print("Error resolving bookmark: \(error)")
+            log.error("Error resolving bookmark: \(error.localizedDescription)")
             return nil
         }
     }

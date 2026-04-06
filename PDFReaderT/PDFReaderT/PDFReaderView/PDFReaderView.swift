@@ -12,263 +12,129 @@ struct PDFReaderView: View {
     
     @Environment(\.scenePhase) private var scenePhase
     
-    @State private var selectedPDFURL: URL?
-    @State private var showingDocumentPicker = false
-    @State private var recentFiles: [RecentFile] = []
-    @State private var currentPage: Int = 0
-    @State private var totalPages: Int = 0
-    @State private var initialPage: Int? = nil
-    @State private var currentFileId: UUID? = nil
-    @State private var pageSaveTimer: Timer?
+    @StateObject private var viewModel : PDFReaderViewModel
     
     var body: some View {
+        let uiModel = viewModel.uiModel
         NavigationView {
             VStack {
-                if let pdfURL = selectedPDFURL {
-                    PDFViewer(
-                        url: pdfURL,
-                        initialPage: initialPage,
-                        currentPage: $currentPage
-                    )
-                    .overlay(alignment: .bottomTrailing) {
-                        Text(
-                            String(
-                                format: String(localized: "pdf_reader.page_counter"),
-                                currentPage + 1,
-                                totalPages
-                            )
-                        )
-                        .padding(8.0)
-                        .background(Color.gray.opacity(0.7))
-                        .cornerRadius(8.0)
-                        .padding(8.0)
-                    }
-                    .onAppear {
-                        startPageSaveTimer()
-                    }
-                    .onDisappear {
-                        stopPageSaveTimer()
-                        saveCurrentPage()
-                    }
+                if uiModel.selectedPDFURL != nil {
+                    pdfDocumentView(uiModel: uiModel)
                 } else {
-                    VStack(spacing: 20) {
-                        ContentUnavailableView(
-                            String(localized: "pdf_reader.empty_title"),
-                            systemImage: "doc.text",
-                            description: Text("pdf_reader.empty_description")
-                        )
-                        
-                        if !recentFiles.isEmpty {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("pdf_reader.recent_files")
-                                    .font(.headline)
-                                    .padding(.horizontal)
-                                
-                                List {
-                                    ForEach(recentFiles) { file in
-                                        RecentFileRow(file: file) {
-                                            openRecentFile(file)
-                                        }
-                                        .listRowInsets(EdgeInsets())
-                                        .listRowSeparator(.hidden)
-                                        .padding(.horizontal)
-                                        .padding(.vertical, 4.0)
-                                    }
-                                    .onDelete(perform: deleteFile)
-                                }
-                                .listStyle(PlainListStyle())
-                            }
-                        }
-                    }
+                    emptyStateView(uiModel: uiModel)
                 }
-                if selectedPDFURL == nil {
-                    Button(String(localized: "pdf_reader.select_pdf")) {
-                        showingDocumentPicker = true
-                    }
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.black)
-                    .frame(height: 40.0)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.green)
-                    .cornerRadius(8.0)
-                    .padding()
+                if uiModel.selectedPDFURL == nil {
+                    selectPDFButton(uiModel: uiModel)
                 }
             }
             .navigationTitle(String(localized: "pdf_reader.navigation_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if selectedPDFURL != nil {
+                if uiModel.selectedPDFURL != nil {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button(String(localized: "pdf_reader.close")) {
-                            saveCurrentPage()
-                            selectedPDFURL = nil
-                            currentFileId = nil
-                            initialPage = nil
+                            viewModel.closePDFReader()
                         }
                     }
                 }
             }
-            .sheet(isPresented: $showingDocumentPicker) {
-                DocumentPicker(selectedURL: $selectedPDFURL, isPresented: $showingDocumentPicker)
+            .sheet(isPresented: uiModel.showingDocumentPickerBinding) {
+                DocumentPicker(
+                    selectedURL: uiModel.selectedPDFURLBinding,
+                    isPresented: uiModel.showingDocumentPickerBinding
+                )
             }
             .onAppear {
-                loadRecentFiles()
+                viewModel.onAppear()
             }
-            .onChange(of: selectedPDFURL) { _, newURL in
-                if let url = newURL {
-                    currentPage = 0
-                    currentFileId = nil
-                    initialPage = nil
-                    saveRecentFile(url)
-                }
+            .onChange(of: uiModel.selectedPDFURL) { _, newURL in
+                viewModel.onSelectedPDFURLChanged(newURL)
             }
             .onChange(of: scenePhase) { _, newPhase in
-                if newPhase == .background {
-                    saveCurrentPage()
+                viewModel.onScenePhaseChanged(newPhase)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func emptyStateView(uiModel: PDFReaderViewUIModel) -> some View {
+        VStack(spacing: 20) {
+            ContentUnavailableView(
+                String(localized: "pdf_reader.empty_title"),
+                systemImage: "doc.text",
+                description: Text("pdf_reader.empty_description")
+            )
+            
+            if !uiModel.recentFiles.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("pdf_reader.recent_files")
+                        .font(.headline)
+                        .padding(.horizontal)
+                    
+                    List {
+                        ForEach(uiModel.recentFiles) { file in
+                            RecentFileRow(file: file) {
+                                viewModel.openRecentFile(file)
+                            }
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .padding(.horizontal)
+                            .padding(.vertical, 4.0)
+                        }
+                        .onDelete(perform: viewModel.deleteFile)
+                    }
+                    .listStyle(PlainListStyle())
                 }
             }
         }
     }
     
-    private func deleteFile(at offsets: IndexSet) {
-        recentFiles.remove(atOffsets: offsets)
-        saveRecentFilesToUserDefaults()
+    @ViewBuilder
+    private func selectPDFButton(uiModel: PDFReaderViewUIModel) -> some View {
+        Button(String(localized: "pdf_reader.select_pdf")) {
+            uiModel.showingDocumentPickerBinding.wrappedValue = true
+        }
+        .font(.system(size: 16, weight: .bold))
+        .foregroundStyle(.black)
+        .frame(height: 40.0)
+        .frame(maxWidth: .infinity)
+        .background(Color.green)
+        .cornerRadius(8.0)
+        .padding()
     }
     
-    private func startPageSaveTimer() {
-        pageSaveTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
-            saveCurrentPage()
-        }
-    }
-    
-    private func stopPageSaveTimer() {
-        pageSaveTimer?.invalidate()
-        pageSaveTimer = nil
-    }
-    
-    private func saveCurrentPage() {
-        guard let fileId = currentFileId,
-              let index = recentFiles.firstIndex(where: { $0.id == fileId }) else {
-            print("XYZ ond saveCurrentPage  not found")
-            return
-        }
-        
-        var updatedFile = recentFiles[index]
-        updatedFile.lastPageNumber = currentPage
-        recentFiles[index] = updatedFile
-        
-        saveRecentFilesToUserDefaults()
-        print("XYZ ond Saved current page: \(currentPage) for file: \(updatedFile.name)")
-    }
-    
-    
-    private func openRecentFile(_ file: RecentFile) {
-        guard let url = URL.resolveBookmark(file.bookmarkData) else {
-            // File is no longer accessible, remove from recent files
-            removeRecentFile(file)
-            return
-        }
-        initialPage = file.lastPageNumber
-        currentFileId = file.id
-        selectedPDFURL = url
-    }
-    
-    private func saveRecentFile(_ url: URL) {
-        print("Attempting to save recent file: \(url.path)")
-        
-        // Ensure we have access to the security-scoped resource
-        guard url.startAccessingSecurityScopedResource() else {
-            print("Failed to access security-scoped resource")
-            return
-        }
-        
-        defer {
-            url.stopAccessingSecurityScopedResource()
-        }
-        
-        // Verify the file exists
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            print("File does not exist at path: \(url.path)")
-            return
-        }
-        
-        // Create bookmark while we have access
-        guard let bookmarkData = url.bookmarkData() else {
-            print("XYZ NO BOOK MARK FOUND")
-            return
-        }
-        if let document = PDFDocument(url: url) {
-            totalPages = document.pageCount
-        }
-        
-        let fileName = url.lastPathComponent
-        let fileSize = getFileSize(url)
-        
-        let recentFile = RecentFile(
-            id: UUID(),
-            name: fileName,
-            bookmarkData: bookmarkData,
-            dateAdded: Date(),
-            fileSize: fileSize,
-            lastPageNumber: 0,
-            totalPages: totalPages
-        )
-        
-        currentFileId = recentFile.id
-        // Remove existing entry if it exists
-        recentFiles.removeAll { $0.name == fileName }
-        
-        // Add to beginning of array
-        recentFiles.insert(recentFile, at: 0)
-        
-        //        // Keep only the last 10 files
-        //        if recentFiles.count > 10 {
-        //            recentFiles = Array(recentFiles.prefix(10))
-        //        }
-        
-        // Save to UserDefaults
-        saveRecentFilesToUserDefaults()
-        
-        print("xyz Successfully saved recent file: \(fileName)")
-    }
-    
-    private func removeRecentFile(_ file: RecentFile) {
-        recentFiles.removeAll { $0.id == file.id }
-        saveRecentFilesToUserDefaults()
-    }
-    
-    private func getFileSize(_ url: URL) -> String {
-        do {
-            let resources = try url.resourceValues(forKeys: [.fileSizeKey])
-            if let fileSize = resources.fileSize {
-                return ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file)
+    @ViewBuilder
+    private func pdfDocumentView(uiModel: PDFReaderViewUIModel) -> some View {
+        if let url = uiModel.selectedPDFURL {
+            PDFViewer(
+                url: url,
+                initialPage: uiModel.initialPage,
+                currentPage: uiModel.currentPageBinding
+            )
+            .overlay(alignment: .bottomTrailing) {
+                Text(
+                    String(
+                        format: String(localized: "pdf_reader.page_counter"),
+                        uiModel.currentPage + 1,
+                        uiModel.totalPages
+                    )
+                )
+                .padding(8.0)
+                .background(Color.gray.opacity(0.7))
+                .cornerRadius(8.0)
+                .padding(8.0)
             }
-        } catch {
-            print("Error getting file size: \(error)")
-        }
-        return String(localized: "pdf_reader.file_size_unknown")
-    }
-    
-    private func loadRecentFiles() {
-        guard let data = UserDefaults.standard.data(forKey: "RecentPDFFiles") else { return }
-        
-        do {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            recentFiles = try decoder.decode([RecentFile].self, from: data)
-        } catch {
-            print("Error loading recent files: \(error)")
+            .onAppear {
+                viewModel.startPageSaveTimer()
+            }
+            .onDisappear {
+                viewModel.stopPageSaveTimer()
+                viewModel.saveCurrentPage()
+            }
         }
     }
     
-    private func saveRecentFilesToUserDefaults() {
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(recentFiles)
-            UserDefaults.standard.set(data, forKey: "RecentPDFFiles")
-        } catch {
-            print("Error saving recent files: \(error)")
-        }
+    init() {
+        _viewModel = StateObject(wrappedValue: PDFReaderViewModel())
     }
 }
