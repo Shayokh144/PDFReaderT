@@ -110,6 +110,39 @@
           }
         }
       }
+    },
+    "pdf_reader.deleted_recent_alert_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File unavailable"
+          }
+        }
+      }
+    },
+    "pdf_reader.deleted_recent_alert_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your selected item is already deleted from your phone by another app."
+          }
+        }
+      }
+    },
+    "pdf_reader.ok" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

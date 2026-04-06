@@ -12,6 +12,12 @@ import SwiftUI
 
 private let log = AppLog.viewModel
 
+/// Content for a dismiss-only alert with a single **OK** action. Pass localized strings, or use `presentOKOnlyAlert(titleKey:messageKey:)`.
+struct OKOnlyAlertContent: Equatable {
+    let title: String
+    let message: String
+}
+
 struct PDFReaderViewUIModel {
     let selectedPDFURL: URL?
     let recentFiles: [RecentFile]
@@ -22,6 +28,8 @@ struct PDFReaderViewUIModel {
     let selectedPDFURLBinding: Binding<URL?>
     let showingDocumentPickerBinding: Binding<Bool>
     let currentPageBinding: Binding<Int>
+    let okOnlyAlert: OKOnlyAlertContent?
+    let okOnlyAlertPresentedBinding: Binding<Bool>
 }
 
 @MainActor
@@ -34,6 +42,7 @@ final class PDFReaderViewModel: ObservableObject {
     @Published var totalPages: Int = 0
     @Published var initialPage: Int? = nil
     @Published var currentFileId: UUID? = nil
+    @Published private(set) var okOnlyAlert: OKOnlyAlertContent?
     
     private var pageSaveTimer: Timer?
     private let recentFilesStore: RecentFilesStoring
@@ -44,6 +53,27 @@ final class PDFReaderViewModel: ObservableObject {
     
     func onAppear() {
         loadRecentFiles()
+    }
+    
+    /// Shows an informational alert with **OK** only. Use for errors that need no follow-up action.
+    func presentOKOnlyAlert(title: String, message: String) {
+        okOnlyAlert = OKOnlyAlertContent(title: title, message: message)
+    }
+    
+    /// Same as `presentOKOnlyAlert(title:message:)`, using `Localizable.xcstrings` keys.
+    func presentOKOnlyAlert(titleKey: String, messageKey: String) {
+        presentOKOnlyAlert(
+            title: Self.localizedString(for: titleKey),
+            message: Self.localizedString(for: messageKey)
+        )
+    }
+    
+    func dismissOKOnlyAlert() {
+        okOnlyAlert = nil
+    }
+    
+    private static func localizedString(for key: String) -> String {
+        String(localized: String.LocalizationValue(stringLiteral: key))
     }
     
     func onSelectedPDFURLChanged(_ newURL: URL?) {
@@ -97,6 +127,10 @@ final class PDFReaderViewModel: ObservableObject {
     func openRecentFile(_ file: RecentFile) {
         guard let url = URL.resolveBookmark(file.bookmarkData) else {
             removeRecentFile(file)
+            presentOKOnlyAlert(
+                titleKey: "pdf_reader.deleted_recent_alert_title",
+                messageKey: "pdf_reader.deleted_recent_alert_message"
+            )
             return
         }
         initialPage = file.lastPageNumber
@@ -215,6 +249,11 @@ final class PDFReaderViewModel: ObservableObject {
             currentPageBinding: Binding(
                 get: { self.currentPage },
                 set: { self.currentPage = $0 }
+            ),
+            okOnlyAlert: okOnlyAlert,
+            okOnlyAlertPresentedBinding: Binding(
+                get: { self.okOnlyAlert != nil },
+                set: { if !$0 { self.okOnlyAlert = nil } }
             )
         )
     }
