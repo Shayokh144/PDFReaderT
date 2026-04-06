@@ -5,8 +5,11 @@
 //  Created by S M Taher on 8/7/25.
 //
 
+import OSLog
 import PDFKit
 import SwiftUI
+
+private let log = AppLog.ui
 
 struct PDFViewer: UIViewRepresentable {
     let url: URL
@@ -47,7 +50,7 @@ struct PDFViewer: UIViewRepresentable {
     private func loadDocument(into pdfView: PDFView) {
         // Start accessing the security-scoped resource
         guard url.startAccessingSecurityScopedResource() else {
-            print("Failed to access security-scoped resource")
+            log.error("Failed to access security-scoped resource")
             return
         }
         
