@@ -53,6 +53,18 @@ struct PDFReaderView: View {
             .onChange(of: scenePhase) { _, newPhase in
                 viewModel.onScenePhaseChanged(newPhase)
             }
+            .alert(
+                Text(uiModel.okOnlyAlert?.title ?? ""),
+                isPresented: uiModel.okOnlyAlertPresentedBinding
+            ) {
+                Button(String(localized: "pdf_reader.ok"), role: .cancel) {
+                    viewModel.dismissOKOnlyAlert()
+                }
+            } message: {
+                if let message = uiModel.okOnlyAlert?.message {
+                    Text(message)
+                }
+            }
         }
     }
     
