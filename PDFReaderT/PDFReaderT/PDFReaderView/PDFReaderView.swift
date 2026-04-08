@@ -16,22 +16,29 @@ struct PDFReaderView: View {
     
     var body: some View {
         let uiModel = viewModel.uiModel
-        NavigationView {
-            VStack {
-                if uiModel.selectedPDFURL != nil {
-                    pdfDocumentView(uiModel: uiModel)
-                } else {
-                    emptyStateView(uiModel: uiModel)
+        NavigationStack {
+            GeometryReader { geometry in
+                let isLandscape = geometry.size.width > geometry.size.height
+                
+                Group {
+                    if uiModel.selectedPDFURL != nil {
+                        pdfDocumentView(uiModel: uiModel)
+                    } else {
+                        emptyStateView(uiModel: uiModel, isLandscape: isLandscape)
+                    }
                 }
-                if uiModel.selectedPDFURL == nil {
-                    selectPDFButton(uiModel: uiModel)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .safeAreaInset(edge: .bottom) {
+                    if uiModel.selectedPDFURL == nil {
+                        selectPDFButton(isLandscape: isLandscape)
+                    }
                 }
             }
             .navigationTitle(String(localized: "pdf_reader.navigation_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if uiModel.selectedPDFURL != nil {
-                    ToolbarItem(placement: .navigationBarTrailing) {
+                    ToolbarItem(placement: .topBarTrailing) {
                         Button(String(localized: "pdf_reader.close")) {
                             viewModel.closePDFReader()
                         }
@@ -75,49 +82,72 @@ struct PDFReaderView: View {
     }
     
     @ViewBuilder
-    private func emptyStateView(uiModel: PDFReaderViewUIModel) -> some View {
-        VStack(spacing: 20) {
-            ContentUnavailableView(
-                String(localized: "pdf_reader.empty_title"),
-                systemImage: "doc.text",
-                description: Text("pdf_reader.empty_description")
-            )
-            
-            if !uiModel.recentFiles.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("pdf_reader.recent_files")
-                        .font(.headline)
-                        .padding(.horizontal)
-                    
-                    List {
-                        ForEach(uiModel.recentFiles) { file in
-                            RecentFileRow(file: file) {
-                                viewModel.openRecentFile(file)
-                            }
-                            .listRowInsets(EdgeInsets())
-                            .listRowSeparator(.hidden)
-                            .padding(.horizontal)
-                            .padding(.vertical, 4.0)
-                        }
-                        .onDelete(perform: viewModel.deleteFile)
+    private func emptyStateView(uiModel: PDFReaderViewUIModel, isLandscape: Bool) -> some View {
+        Group {
+            if isLandscape && !uiModel.recentFiles.isEmpty {
+                HStack(alignment: .top, spacing: 24) {
+                    emptyStateCard()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    recentFilesSection(uiModel: uiModel)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                }
+            } else {
+                VStack(spacing: 24) {
+                    emptyStateCard()
+                    if !uiModel.recentFiles.isEmpty {
+                        recentFilesSection(uiModel: uiModel)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     }
-                    .listStyle(PlainListStyle())
                 }
             }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: isLandscape ? .center : .top)
+    }
+    
+    private func emptyStateCard() -> some View {
+        ContentUnavailableView(
+            String(localized: "pdf_reader.empty_title"),
+            systemImage: "doc.text",
+            description: Text("pdf_reader.empty_description")
+        )
+        .frame(maxWidth: .infinity)
+    }
+    
+    private func recentFilesSection(uiModel: PDFReaderViewUIModel) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("pdf_reader.recent_files")
+                .font(.headline)
+            
+            List {
+                ForEach(uiModel.recentFiles) { file in
+                    RecentFileRow(file: file) {
+                        viewModel.openRecentFile(file)
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .padding(.vertical, 4.0)
+                }
+                .onDelete(perform: viewModel.deleteFile)
+            }
+            .listStyle(.plain)
         }
     }
     
     @ViewBuilder
-    private func selectPDFButton(uiModel: PDFReaderViewUIModel) -> some View {
-        Button(String(localized: "pdf_reader.select_pdf")) {
+    private func selectPDFButton(isLandscape: Bool) -> some View {
+        Button {
             viewModel.showingDocumentPicker = true
+        } label: {
+            Text(String(localized: "pdf_reader.select_pdf"))
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(height: 44.0)
+                .frame(maxWidth: isLandscape ? 360.0 : .infinity)
+                .background(Color.green)
+                .cornerRadius(8.0)
         }
-        .font(.system(size: 16, weight: .bold))
-        .foregroundStyle(.black)
-        .frame(height: 40.0)
-        .frame(maxWidth: .infinity)
-        .background(Color.green)
-        .cornerRadius(8.0)
+        .contentShape(Rectangle())
         .padding()
     }
     

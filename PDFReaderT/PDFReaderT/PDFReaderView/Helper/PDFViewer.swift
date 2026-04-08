@@ -102,6 +102,8 @@ struct PDFViewer: UIViewRepresentable {
         if let document = PDFDocument(url: url) {
             pdfView.document = document
             coordinator.loadedDocumentURL = url
+            coordinator.resetScaleTracking()
+            coordinator.fitDocumentToVisibleBounds(in: pdfView, force: true)
             
             // Navigate to the initial page if specified
             if let initialPage = initialPage,
@@ -129,6 +131,7 @@ extension PDFViewer {
         private var selectionChangeObserver: NSObjectProtocol?
         private let saveCoordinator = PDFSaveCoordinator()
         private var didRegisterFlusher = false
+        private var lastFittedSize: CGSize = .zero
         
         init(parent: PDFViewer) {
             self.parent = parent
@@ -139,6 +142,10 @@ extension PDFViewer {
             
             guard let highlightablePDFView = pdfView as? HighlightablePDFView else {
                 return
+            }
+            
+            highlightablePDFView.onLayoutChanged = { [weak self] view in
+                self?.fitDocumentToVisibleBounds(in: view)
             }
             
             if pageChangeObserver == nil {
@@ -191,6 +198,37 @@ extension PDFViewer {
                     }
                 )
                 parent.onSaveFlusherReady(flusher)
+            }
+        }
+        
+        func resetScaleTracking() {
+            lastFittedSize = .zero
+        }
+        
+        func fitDocumentToVisibleBounds(in pdfView: PDFView, force: Bool = false) {
+            guard pdfView.bounds.width > 0.0, pdfView.bounds.height > 0.0 else {
+                return
+            }
+            
+            let currentSize = pdfView.bounds.size
+            guard force || currentSize != lastFittedSize else {
+                return
+            }
+            
+            lastFittedSize = currentSize
+            let currentPage = pdfView.currentPage
+            
+            let fittedScale = pdfView.scaleFactorForSizeToFit
+            guard fittedScale.isFinite && fittedScale > 0.0 else {
+                return
+            }
+            
+            pdfView.minScaleFactor = fittedScale
+            pdfView.maxScaleFactor = max(fittedScale * 4.0, fittedScale)
+            pdfView.scaleFactor = fittedScale
+            
+            if let currentPage {
+                pdfView.go(to: currentPage)
             }
         }
         
@@ -345,14 +383,27 @@ private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate
     var onHighlightSelection: ((PDFSelection) -> Void)?
     var highlightMenuTitle: String = "Highlight"
     var latestSelection: PDFSelection?
+    var onLayoutChanged: ((HighlightablePDFView) -> Void)?
     
     private lazy var editInteraction = UIEditMenuInteraction(delegate: self)
     private var didAddInteraction = false
     private var menuWorkItem: DispatchWorkItem?
     private var retryWorkItem: DispatchWorkItem?
     private var isOurMenuVisible = false
+    private var lastLaidOutSize: CGSize = .zero
     
     override var canBecomeFirstResponder: Bool { true }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        
+        guard bounds.size != .zero, bounds.size != lastLaidOutSize else {
+            return
+        }
+        
+        lastLaidOutSize = bounds.size
+        onLayoutChanged?(self)
+    }
     
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
         if action == #selector(UIResponderStandardEditActions.copy(_:)) {

@@ -34,6 +34,7 @@ Use this list as the baseline scope for building an Android version with equival
 ### 4) PDF Reader Experience
 - Continuous vertical scrolling page mode.
 - Auto-scale pages to fit screen.
+- Supports both portrait and landscape orientations.
 - Show live page indicator overlay in reader (`current/total`).
 - Reader has a "Close" action to return to home state.
 
