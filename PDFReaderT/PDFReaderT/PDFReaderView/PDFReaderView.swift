@@ -38,10 +38,10 @@ struct PDFReaderView: View {
                     }
                 }
             }
-            .sheet(isPresented: uiModel.showingDocumentPickerBinding) {
+            .sheet(isPresented: $viewModel.showingDocumentPicker) {
                 DocumentPicker(
-                    selectedURL: uiModel.selectedPDFURLBinding,
-                    isPresented: uiModel.showingDocumentPickerBinding
+                    selectedURL: $viewModel.selectedPDFURL,
+                    isPresented: $viewModel.showingDocumentPicker
                 )
             }
             .onAppear {
@@ -51,11 +51,16 @@ struct PDFReaderView: View {
                 viewModel.onSelectedPDFURLChanged(newURL)
             }
             .onChange(of: scenePhase) { _, newPhase in
-                viewModel.onScenePhaseChanged(newPhase)
+                if newPhase == .background {
+                    viewModel.onDidEnterBackground()
+                }
             }
             .alert(
                 Text(uiModel.okOnlyAlert?.title ?? ""),
-                isPresented: uiModel.okOnlyAlertPresentedBinding
+                isPresented: Binding(
+                    get: { viewModel.okOnlyAlert != nil },
+                    set: { if !$0 { viewModel.dismissOKOnlyAlert() } }
+                )
             ) {
                 Button(String(localized: "pdf_reader.ok"), role: .cancel) {
                     viewModel.dismissOKOnlyAlert()
@@ -104,7 +109,7 @@ struct PDFReaderView: View {
     @ViewBuilder
     private func selectPDFButton(uiModel: PDFReaderViewUIModel) -> some View {
         Button(String(localized: "pdf_reader.select_pdf")) {
-            uiModel.showingDocumentPickerBinding.wrappedValue = true
+            viewModel.showingDocumentPicker = true
         }
         .font(.system(size: 16, weight: .bold))
         .foregroundStyle(.black)
@@ -121,7 +126,7 @@ struct PDFReaderView: View {
             PDFViewer(
                 url: url,
                 initialPage: uiModel.initialPage,
-                currentPage: uiModel.currentPageBinding
+                currentPage: $viewModel.currentPage
             )
             .overlay(alignment: .bottomTrailing) {
                 Text(

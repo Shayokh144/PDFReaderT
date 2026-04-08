@@ -6,9 +6,9 @@
 //
 
 import Foundation
+import Combine
 import OSLog
 import PDFKit
-import SwiftUI
 
 private let log = AppLog.viewModel
 
@@ -25,11 +25,7 @@ struct PDFReaderViewUIModel {
     let totalPages: Int
     let initialPage: Int?
     let showingDocumentPicker: Bool
-    let selectedPDFURLBinding: Binding<URL?>
-    let showingDocumentPickerBinding: Binding<Bool>
-    let currentPageBinding: Binding<Int>
     let okOnlyAlert: OKOnlyAlertContent?
-    let okOnlyAlertPresentedBinding: Binding<Bool>
 }
 
 @MainActor
@@ -85,10 +81,8 @@ final class PDFReaderViewModel: ObservableObject {
         }
     }
     
-    func onScenePhaseChanged(_ newPhase: ScenePhase) {
-        if newPhase == .background {
-            saveCurrentPage()
-        }
+    func onDidEnterBackground() {
+        saveCurrentPage()
     }
     
     func deleteFile(at offsets: IndexSet) {
@@ -238,23 +232,7 @@ final class PDFReaderViewModel: ObservableObject {
             totalPages: totalPages,
             initialPage: initialPage,
             showingDocumentPicker: showingDocumentPicker,
-            selectedPDFURLBinding: Binding(
-                get: { self.selectedPDFURL },
-                set: { self.selectedPDFURL = $0 }
-            ),
-            showingDocumentPickerBinding: Binding(
-                get: { self.showingDocumentPicker },
-                set: { self.showingDocumentPicker = $0 }
-            ),
-            currentPageBinding: Binding(
-                get: { self.currentPage },
-                set: { self.currentPage = $0 }
-            ),
-            okOnlyAlert: okOnlyAlert,
-            okOnlyAlertPresentedBinding: Binding(
-                get: { self.okOnlyAlert != nil },
-                set: { if !$0 { self.okOnlyAlert = nil } }
-            )
+            okOnlyAlert: okOnlyAlert
         )
     }
 }
