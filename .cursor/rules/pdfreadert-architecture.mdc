@@ -1,0 +1,38 @@
+---
+description: MVVM, Clean Architecture, protocol-oriented design, and UI model when implementing features
+globs: "**/*.swift"
+alwaysApply: false
+---
+
+# PDFReaderT — feature implementation architecture
+
+When **implementing a new feature** or a non-trivial change, follow this stack and match the existing codebase style (see also `pdfreadert-conventions.mdc`).
+
+## MVVM
+
+- **View (SwiftUI)**: Layout, bindings, and user events only. No business rules, file I/O, or persistence. Call the view model; do not reach into services or `UserDefaults` from the view.
+- **View model (`@MainActor`, `ObservableObject`)**: Owns presentation state, coordinates use cases / services, exposes intent methods (`onAppear`, `open…`, `save…`). Keep PDFKit/UIKit details in representables or dedicated adapters when possible.
+- **Model**: Value types and domain-shaped data in `DataModel/` (or feature-local structs). Views and view models consume models; they do not duplicate domain fields ad hoc in the view.
+
+## Clean Architecture (pragmatic for this app)
+
+- **Dependency direction**: Domain/presentation (view models, pure types) must not depend on concrete infrastructure. Depend on **protocols**; concrete types are constructed at the edge (app entry, view `init`, previews) or via defaults in the view model `init`.
+- **Use cases**: Non-trivial flows (e.g. “open recent file”, “persist page”) live in the view model or small dedicated types that call **`protocol`**-typed services—not `UserDefaults` or `FileManager` directly from multiple layers.
+- **Infrastructure**: I/O, `UserDefaults`, bookmark/file access live behind protocols (`RecentFilesStoring`-style) in `Services/` or similar, with testable seams.
+
+## Protocol-oriented programming
+
+- Define **`protocol`**s for storage, clients, and any swappable behavior; provide **`final class`** (or struct) implementations in `Services/`.
+- Inject abstractions through **`init`** parameters with **default live implementations** for the app target (same pattern as `RecentFilesStoring = UserDefaultsRecentFilesStore()`).
+- Prefer protocol types in API surface; avoid concrete singletons for new code.
+
+## UI model (current style)
+
+- For each primary screen, add a **read-only struct** that aggregates everything the view needs to render (e.g. `PDFReaderViewUIModel`: URLs, lists, flags, alert payloads).
+- Expose it as a computed property on the view model (e.g. `var uiModel: …`) so `body` reads **`let uiModel = viewModel.uiModel`** and uses `uiModel` consistently.
+- Keep `@Published` properties as the source of truth; the UI model is a **snapshot for the view**, not a second mutable store.
+
+## File placement for new features
+
+- Feature views and helpers under `PDFReaderView/` (or a feature folder mirroring that layout).
+- Protocols + concrete services under `Services/`; shared models under `DataModel/`; extensions under `Extension/`; logging via `AppLog`.

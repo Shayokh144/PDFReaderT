@@ -1,0 +1,23 @@
+---
+description: Ask the user targeted questions when requirements or context are ambiguous
+alwaysApply: true
+---
+
+# Clarify before building
+
+When working on PDFReaderT (or any task in this workspace), **do not guess** when important details are missing.
+
+## When to ask
+
+- Requirements are **vague** (e.g. “make it better”, “add settings”) with no acceptance criteria.
+- Multiple **reasonable interpretations** exist (UX flow, data to persist, error handling, platforms, iOS versions).
+- You lack **files, APIs, or constraints** needed to implement safely (entitlements, existing types, localization keys).
+- The user’s request could **break** existing architecture (e.g. bypassing MVVM or protocols) unless they confirm.
+
+## How to ask
+
+- Ask **specific, minimal** questions (bullet list is fine)—prefer 2–5 focused questions over a long form.
+- Offer **defaults or options** when helpful so the user can answer quickly (A / B / short phrase).
+- If you can proceed on a **small, reversible** part without answers, say what you will assume and still ask only for what blocks correctness or scope.
+
+After answers arrive, implement **without** re-asking the same topics unless the user changes direction.

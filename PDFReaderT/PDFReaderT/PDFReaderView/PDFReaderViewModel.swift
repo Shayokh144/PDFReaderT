@@ -26,6 +26,7 @@ struct PDFReaderViewUIModel {
     let initialPage: Int?
     let showingDocumentPicker: Bool
     let okOnlyAlert: OKOnlyAlertContent?
+    let isSavingBeforeClose: Bool
 }
 
 @MainActor
@@ -39,6 +40,9 @@ final class PDFReaderViewModel: ObservableObject {
     @Published var initialPage: Int? = nil
     @Published var currentFileId: UUID? = nil
     @Published private(set) var okOnlyAlert: OKOnlyAlertContent?
+    @Published private(set) var isSavingBeforeClose = false
+    
+    var saveFlusher: SaveFlusher?
     
     private var pageSaveTimer: Timer?
     private let recentFilesStore: RecentFilesStoring
@@ -83,6 +87,7 @@ final class PDFReaderViewModel: ObservableObject {
     
     func onDidEnterBackground() {
         saveCurrentPage()
+        saveFlusher?.flushSync()
     }
     
     func deleteFile(at offsets: IndexSet) {
@@ -133,10 +138,28 @@ final class PDFReaderViewModel: ObservableObject {
     }
     
     func closePDFReader() {
+        guard !isSavingBeforeClose else { return }
+        
         saveCurrentPage()
+        
+        guard let saveFlusher else {
+            performClose()
+            return
+        }
+        
+        isSavingBeforeClose = true
+        saveFlusher.flush { [weak self] in
+            guard let self else { return }
+            self.isSavingBeforeClose = false
+            self.performClose()
+        }
+    }
+    
+    private func performClose() {
         selectedPDFURL = nil
         currentFileId = nil
         initialPage = nil
+        saveFlusher = nil
     }
     
     func saveRecentFile(_ url: URL) {
@@ -232,7 +255,8 @@ final class PDFReaderViewModel: ObservableObject {
             totalPages: totalPages,
             initialPage: initialPage,
             showingDocumentPicker: showingDocumentPicker,
-            okOnlyAlert: okOnlyAlert
+            okOnlyAlert: okOnlyAlert,
+            isSavingBeforeClose: isSavingBeforeClose
         )
     }
 }
