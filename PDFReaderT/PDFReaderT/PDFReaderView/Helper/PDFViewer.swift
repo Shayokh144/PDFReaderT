@@ -376,6 +376,7 @@ private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate
             didAddInteraction = true
         }
         if window != nil {
+            disableScrollToTopBehavior()
             stripCompetingEditMenuInteractions()
         }
     }
@@ -436,6 +437,13 @@ private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate
         }
     }
     
+    /// Prevent taps on the top system chrome from snapping the PDF back to page 1.
+    private func disableScrollToTopBehavior() {
+        Self.forEachScrollView(in: self) { scrollView in
+            scrollView.scrollsToTop = false
+        }
+    }
+    
     private static func forEachEditMenuInteraction(
         in view: UIView,
         action: (UIView, UIEditMenuInteraction) -> Void
@@ -447,6 +455,18 @@ private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate
         }
         for subview in view.subviews {
             forEachEditMenuInteraction(in: subview, action: action)
+        }
+    }
+    
+    private static func forEachScrollView(
+        in view: UIView,
+        action: (UIScrollView) -> Void
+    ) {
+        if let scrollView = view as? UIScrollView {
+            action(scrollView)
+        }
+        for subview in view.subviews {
+            forEachScrollView(in: subview, action: action)
         }
     }
     
