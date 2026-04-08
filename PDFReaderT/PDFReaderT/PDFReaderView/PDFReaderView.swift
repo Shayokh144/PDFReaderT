@@ -35,6 +35,7 @@ struct PDFReaderView: View {
                         Button(String(localized: "pdf_reader.close")) {
                             viewModel.closePDFReader()
                         }
+                        .disabled(uiModel.isSavingBeforeClose)
                     }
                 }
             }
@@ -126,7 +127,22 @@ struct PDFReaderView: View {
             PDFViewer(
                 url: url,
                 initialPage: uiModel.initialPage,
-                currentPage: $viewModel.currentPage
+                currentPage: $viewModel.currentPage,
+                onReadOnlyPDF: {
+                    viewModel.presentOKOnlyAlert(
+                        titleKey: "pdf_reader.read_only_alert_title",
+                        messageKey: "pdf_reader.read_only_alert_message"
+                    )
+                },
+                onSaveFailed: {
+                    viewModel.presentOKOnlyAlert(
+                        titleKey: "pdf_reader.save_annotations_error_title",
+                        messageKey: "pdf_reader.save_annotations_error_message"
+                    )
+                },
+                onSaveFlusherReady: { flusher in
+                    viewModel.saveFlusher = flusher
+                }
             )
             .overlay(alignment: .bottomTrailing) {
                 Text(
@@ -140,6 +156,22 @@ struct PDFReaderView: View {
                 .background(Color.gray.opacity(0.7))
                 .cornerRadius(8.0)
                 .padding(8.0)
+            }
+            .overlay {
+                if uiModel.isSavingBeforeClose {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .overlay {
+                            ProgressView {
+                                Text("pdf_reader.saving")
+                            }
+                            .controlSize(.regular)
+                            .tint(.white)
+                            .foregroundStyle(.white)
+                            .padding(24)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                }
             }
             .onAppear {
                 viewModel.startPageSaveTimer()

@@ -1,0 +1,53 @@
+---
+description: PDFReaderT Swift/SwiftUI architecture, logging, localization, and file access patterns
+globs: "**/*.swift"
+alwaysApply: false
+---
+
+# PDFReaderT — project conventions
+
+Follow these patterns when adding or changing Swift code in this iOS app (SwiftUI + PDFKit). For MVVM, Clean Architecture, protocol-oriented design, and UI-model rules when **implementing features**, see `pdfreadert-architecture.mdc`.
+
+## Layout and layers
+
+- **Views** live under `PDFReaderView/`; small UI pieces in `PDFReaderView/Helper/`.
+- **View models** are `@MainActor` `ObservableObject` types with `@Published` state.
+- **Services** implement protocols (e.g. `RecentFilesStoring` in `Services/`).
+- **Models** are value types in `DataModel/` (`Codable`, `Identifiable` where needed).
+- **Cross-cutting helpers** go in `Extension/`; shared logging in `Logging/AppLog.swift`.
+
+## View model ↔ SwiftUI
+
+- Expose a **read-only UI snapshot** struct (e.g. `PDFReaderViewUIModel`) and a computed `uiModel` so the view reads one aggregate instead of many separate `@Published` fields in `body`.
+- Wire lifecycle and side effects with **named view model methods** (`onAppear`, `onSelectedPDFURLChanged`, `onDidEnterBackground`) rather than embedding business logic in the view.
+- Inject dependencies via `init` with **default implementations** for production (e.g. `RecentFilesStoring = UserDefaultsRecentFilesStore()`).
+
+## Logging
+
+- Use **one file-private logger** per file: `private let log = AppLog.<category>` where `<category>` matches `AppLog` (viewModel, ui, storage, bookmarks, network) or `AppLog.logger(category:)`.
+- In view models, prefix messages with `AppLog.scopePrefix(for: Self.self)` for traceable context.
+- Use appropriate levels (`debug`, `info`, `warning`, `error`). For user paths, use `privacy: .private` on interpolated URLs/paths when logging.
+
+## Localization
+
+- User-visible strings use **`String(localized: "pdf_reader....")`** or keys consistent with `Localizable.xcstrings` (prefix `pdf_reader.`).
+- For alerts driven from the view model, prefer **`presentOKOnlyAlert(titleKey:messageKey:)`** when keys exist.
+
+## Security-scoped URLs and bookmarks
+
+- Always pair **`startAccessingSecurityScopedResource()`** with **`defer { stopAccessingSecurityScopedResource() }`** (or equivalent) when reading files or creating bookmarks.
+- After picking a file in `DocumentPicker`, **do not** stop security-scoped access before the view model creates bookmark data (see coordinator comment in `DocumentPicker`).
+- Use **`URL.bookmarkData()`** and **`URL.resolveBookmark(_:)`** from `Extension/URL+Extension.swift` for persistence; handle stale bookmarks and resolution failures in the UI (e.g. remove entry + OK-only alert).
+
+## SwiftUI bridges to UIKit
+
+- Use **`UIViewRepresentable`** / **`UIViewControllerRepresentable`** for PDFKit and document picking; keep coordinators small and delegate updates back to bindings.
+
+## Persistence
+
+- Encode/decode with **`JSONEncoder` / `JSONDecoder`** and **ISO-8601** date strategies for models that include `Date`.
+- Surface load failures as enums or results (e.g. `RecentFilesLoadResult`) and log decode errors; avoid silent failure in storage except where already established.
+
+## Async and timers
+
+- When a `Timer` fires and needs main-thread work, use **`Task { @MainActor in ... }`** (see periodic page save) so UI state updates stay on the main actor.
