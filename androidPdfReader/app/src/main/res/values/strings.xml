@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">PDF Reader</string>
+    <string name="pdf_reader_close">Close</string>
+    <string name="pdf_reader_remove">Remove</string>
+    <string name="pdf_reader_recent_file_unavailable">This file is no longer available. It may have been moved, deleted, or you may no longer have permission to open it.</string>
+    <string name="pdf_reader_empty_description">Pick a PDF to read, or open one from your recent files.</string>
+    <string name="pdf_reader_empty_title">No PDF selected</string>
+    <string name="pdf_reader_file_size_unknown">Size unknown</string>
+    <string name="pdf_reader_list_separator">•</string>
+    <string name="pdf_reader_navigation_title">PDF Reader</string>
+    <string name="pdf_reader_open_error_message">Couldn\'t open this PDF. Try another file.</string>
+    <string name="pdf_reader_recent_file_page_format">Page %1$d of %2$d</string>
+    <string name="pdf_reader_recent_files">Recent files</string>
+    <string name="pdf_reader_select_pdf">Select PDF</string>
+    <string name="pdf_reader_unknown_file_name">Untitled PDF</string>
+    <string name="pdf_reader_unsupported_device">PDF viewing isn\'t available on this device.</string>
+    <string name="pdf_reader_load_error">Couldn\'t load this PDF.</string>
+</resources>

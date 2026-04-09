@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Material3 provides attrs expected by androidx.pdf PdfViewerFragment layouts (e.g. text appearances). -->
+    <style name="Theme.PDFReaderLite" parent="Theme.Material3.DayNight.NoActionBar" />
+</resources>
