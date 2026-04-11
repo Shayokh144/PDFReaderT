@@ -53,7 +53,7 @@ class AndroidxPdfReaderActivity : AppCompatActivity() {
         totalPages = resolvePageCount(uri)
 
         if (savedInstanceState == null) {
-            val fragment = ReaderPdfViewerFragment.newInstance(uri, initialPage)
+            val fragment = ReaderPdfViewerFragment.newInstance(uri, initialPage, documentId)
             supportFragmentManager.beginTransaction()
                 .replace(R.id.pdf_fragment_container, fragment, TAG_PDF_FRAGMENT)
                 .commit()

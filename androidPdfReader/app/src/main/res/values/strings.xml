@@ -15,4 +15,8 @@
     <string name="pdf_reader_unknown_file_name">Untitled PDF</string>
     <string name="pdf_reader_unsupported_device">PDF viewing isn\'t available on this device.</string>
     <string name="pdf_reader_load_error">Couldn\'t load this PDF.</string>
+    <string name="pdf_reader_highlight">Highlight</string>
+    <string name="pdf_reader_highlight_description">Highlight selected text</string>
+    <string name="pdf_reader_highlight_read_only_document">Highlights are saved in this app. This file can\'t be edited as a PDF, so marks aren\'t stored inside the file.</string>
+    <string name="pdf_reader_highlight_save_failed">Highlights are saved in this app. The PDF file on disk couldn\'t be updated (e.g. read-only).</string>
 </resources>

@@ -1,7 +1,6 @@
 package com.example.taher144.pdfreaderlite.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,7 +38,7 @@ fun PDFReaderApp(
     val pdfEngine = remember { context.appContainer.pdfEngine }
 
     val pickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
+        contract = OpenPdfDocumentContract()
     ) { uri ->
         if (uri != null) {
             viewModel.onPdfPicked(uri)

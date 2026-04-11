@@ -4,8 +4,10 @@ import android.content.Context
 import com.example.taher144.pdfreaderlite.data.repository.PersistedUriHelper
 import com.example.taher144.pdfreaderlite.data.repository.ReadingPositionRepository
 import com.example.taher144.pdfreaderlite.data.repository.RecentFilesRepository
+import com.example.taher144.pdfreaderlite.data.repository.UserPdfHighlightsRepository
 import com.example.taher144.pdfreaderlite.data.repository.UserPrefsReadingPositionRepository
 import com.example.taher144.pdfreaderlite.data.repository.UserPrefsRecentFilesRepository
+import com.example.taher144.pdfreaderlite.data.repository.UserPrefsUserPdfHighlightsRepository
 import com.example.taher144.pdfreaderlite.reader.AndroidxPdfEngine
 import com.example.taher144.pdfreaderlite.reader.PdfEngine
 
@@ -22,6 +24,10 @@ class AppContainer(context: Context) {
 
     val readingPositionRepository: ReadingPositionRepository by lazy {
         UserPrefsReadingPositionRepository(appContext)
+    }
+
+    val userPdfHighlightsRepository: UserPdfHighlightsRepository by lazy {
+        UserPrefsUserPdfHighlightsRepository(appContext)
     }
 
     val pdfEngine: PdfEngine by lazy {

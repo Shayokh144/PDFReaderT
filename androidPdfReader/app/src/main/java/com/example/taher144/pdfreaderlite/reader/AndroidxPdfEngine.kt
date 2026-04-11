@@ -29,8 +29,8 @@ class AndroidxPdfEngine(
             uri = uri,
             pageCount = pageCount,
             supportsTextSelection = true,
-            supportsAnnotations = false,
-            isReadOnlyForAnnotations = true
+            supportsAnnotations = true,
+            isReadOnlyForAnnotations = false
         )
     }
 

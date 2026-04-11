@@ -5,14 +5,24 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.core.os.bundleOf
 import androidx.pdf.ExperimentalPdfApi
+import androidx.pdf.PdfDocument
+import androidx.pdf.view.Highlight
 import androidx.pdf.view.PdfView
 import androidx.pdf.viewer.fragment.PdfViewerFragment
+import com.example.taher144.pdfreaderlite.app.appContainer
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @kotlin.OptIn(ExperimentalPdfApi::class)
 class ReaderPdfViewerFragment : PdfViewerFragment() {
 
     private var pdfViewRef: PdfView? = null
     private var pendingInitialPage: Int? = null
+
+    /** In-memory list shared with [ReaderPdfSelectionConfigurator]; persisted via app DataStore. */
+    private val userSessionHighlights = mutableListOf<Highlight>()
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -55,10 +65,46 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
     override fun onPdfViewCreated(pdfView: PdfView) {
         super.onPdfViewCreated(pdfView)
         this.pdfViewRef = pdfView
+        val uri = arguments?.getString(ARG_URI)?.let(Uri::parse) ?: return
+        val documentId = arguments?.getString(ARG_DOCUMENT_ID).orEmpty()
+        ReaderPdfSelectionConfigurator.attach(
+            pdfView = pdfView,
+            documentUri = uri,
+            documentId = documentId,
+            lifecycleOwner = viewLifecycleOwner,
+            highlightsRepository = requireContext().applicationContext.appContainer.userPdfHighlightsRepository,
+            sessionHighlights = userSessionHighlights,
+        )
     }
 
-    override fun onLoadDocumentSuccess(document: androidx.pdf.PdfDocument) {
+    /**
+     * Hide the default annotation toolbox (pen FAB). We apply highlights from the text selection
+     * menu instead of the external annotate intent flow.
+     */
+    override fun onRequestImmersiveMode(enterImmersive: Boolean) {
+        super.onRequestImmersiveMode(enterImmersive)
+        isToolboxVisible = false
+    }
+
+    override fun onLoadDocumentSuccess(document: PdfDocument) {
         super.onLoadDocumentSuccess(document)
+        isToolboxVisible = false
+        val documentId = arguments?.getString(ARG_DOCUMENT_ID).orEmpty()
+        if (documentId.isNotBlank()) {
+            // Never use runBlocking here: DataStore + main thread can deadlock and kill the app.
+            viewLifecycleOwner.lifecycleScope.launch {
+                val loaded = runCatching {
+                    withContext(Dispatchers.IO) {
+                        requireContext().applicationContext.appContainer.userPdfHighlightsRepository
+                            .getHighlights(documentId)
+                    }
+                }.getOrElse { emptyList() }
+                if (!isAdded) return@launch
+                userSessionHighlights.clear()
+                userSessionHighlights.addAll(loaded)
+                pdfViewRef?.setHighlights(userSessionHighlights.toList())
+            }
+        }
         val initialPage = pendingInitialPage ?: arguments?.getInt(ARG_INITIAL_PAGE, 0) ?: 0
         pendingInitialPage = null
         if (initialPage > 0) {
@@ -91,13 +137,15 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
 
         private const val ARG_URI = "document_uri"
         private const val ARG_INITIAL_PAGE = "initial_page"
+        private const val ARG_DOCUMENT_ID = "document_id"
 
-        fun newInstance(uri: Uri, initialPage: Int): ReaderPdfViewerFragment {
+        fun newInstance(uri: Uri, initialPage: Int, documentId: String): ReaderPdfViewerFragment {
             return ReaderPdfViewerFragment().apply {
                 pendingInitialPage = initialPage
                 arguments = bundleOf(
                     ARG_URI to uri.toString(),
-                    ARG_INITIAL_PAGE to initialPage
+                    ARG_INITIAL_PAGE to initialPage,
+                    ARG_DOCUMENT_ID to documentId,
                 )
             }
         }

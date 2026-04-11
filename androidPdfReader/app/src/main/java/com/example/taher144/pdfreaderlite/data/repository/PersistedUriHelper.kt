@@ -17,6 +17,18 @@ class PersistedUriHelper(
         }
     }
 
+    /**
+     * Persists read + write access when the picker granted both (see [Intent.FLAG_GRANT_WRITE_URI_PERMISSION]).
+     */
+    fun takePersistableReadWritePermission(uri: Uri) {
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+        }
+    }
+
     fun canRead(uri: Uri): Boolean {
         return runCatching {
             context.contentResolver.openInputStream(uri)?.close()

@@ -59,7 +59,7 @@ class HomeViewModel(
         viewModelScope.launch {
             isOpeningDocument.value = true
             try {
-                persistedUriHelper.takePersistableReadPermission(uri)
+                persistedUriHelper.takePersistableReadWritePermission(uri)
                 val document = pdfEngine.openDocument(uri)
                 val now = System.currentTimeMillis()
                 val displayName = persistedUriHelper.getDisplayName(uri)
@@ -108,6 +108,8 @@ class HomeViewModel(
                     _events.emit(HomeEvent.ShowMessage(R.string.pdf_reader_recent_file_unavailable))
                     return@launch
                 }
+
+                persistedUriHelper.takePersistableReadWritePermission(uri)
 
                 val document = pdfEngine.openDocument(uri)
                 val lastPage = readingPositionRepository.get(record.id)?.currentPage ?: record.lastPage
