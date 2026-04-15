@@ -86,31 +86,47 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
         isToolboxVisible = false
     }
 
+    override fun onResume() {
+        super.onResume()
+        // PdfView clears highlight overlays when the surface pauses; reload from store when doc still loaded.
+        val view = pdfViewRef ?: return
+        fun restoreIfReady() {
+            if (pdfViewRef?.pdfDocument != null) scheduleRestoreHighlightsFromStore()
+        }
+        restoreIfReady()
+        if (view.pdfDocument == null) {
+            view.post { restoreIfReady() }
+        }
+    }
+
     override fun onLoadDocumentSuccess(document: PdfDocument) {
         super.onLoadDocumentSuccess(document)
         isToolboxVisible = false
-        val documentId = arguments?.getString(ARG_DOCUMENT_ID).orEmpty()
-        if (documentId.isNotBlank()) {
-            // Never use runBlocking here: DataStore + main thread can deadlock and kill the app.
-            viewLifecycleOwner.lifecycleScope.launch {
-                val loaded = runCatching {
-                    withContext(Dispatchers.IO) {
-                        requireContext().applicationContext.appContainer.userPdfHighlightsRepository
-                            .getHighlights(documentId)
-                    }
-                }.getOrElse { emptyList() }
-                if (!isAdded) return@launch
-                userSessionHighlights.clear()
-                userSessionHighlights.addAll(loaded)
-                pdfViewRef?.setHighlights(userSessionHighlights.toList())
-            }
-        }
+        scheduleRestoreHighlightsFromStore()
         val initialPage = pendingInitialPage ?: arguments?.getInt(ARG_INITIAL_PAGE, 0) ?: 0
         pendingInitialPage = null
         if (initialPage > 0) {
             // PdfView only wires PdfDocument into the scroller after this callback; scrolling
             // immediately throws IllegalStateException ("without PdfDocument").
             scheduleScrollToPage(initialPage)
+        }
+    }
+
+    /** Never use runBlocking on the main thread here: DataStore can deadlock. */
+    private fun scheduleRestoreHighlightsFromStore() {
+        val documentId = arguments?.getString(ARG_DOCUMENT_ID).orEmpty()
+        if (documentId.isBlank()) return
+        viewLifecycleOwner.lifecycleScope.launch {
+            val loaded = runCatching {
+                withContext(Dispatchers.IO) {
+                    requireContext().applicationContext.appContainer.userPdfHighlightsRepository
+                        .getHighlights(documentId)
+                }
+            }.getOrElse { emptyList() }
+            if (!isAdded) return@launch
+            userSessionHighlights.clear()
+            userSessionHighlights.addAll(loaded)
+            pdfViewRef?.setHighlights(userSessionHighlights.toList())
         }
     }
 
