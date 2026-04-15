@@ -298,7 +298,8 @@ extension PDFViewer {
             saveCoordinator.save(document: document, to: url, trigger: trigger, onFailure: onFailure)
         }
         
-        private static let highlightColor = UIColor.yellow.withAlphaComponent(0.5)
+        /// Opaque pastel: same *look* as green at low alpha over white; PDF saves highlight RGB without alpha.
+        private static let highlightColor = UIColor(red: 0.8, green: 1.0, blue: 0.8, alpha: 1.0)
     }
 }
 
