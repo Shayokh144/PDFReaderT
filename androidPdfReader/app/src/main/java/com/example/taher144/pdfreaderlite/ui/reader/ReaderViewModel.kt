@@ -18,7 +18,8 @@ class ReaderViewModel(
         documentId: String,
         currentPage: Int,
         totalPages: Int,
-        isReadOnly: Boolean
+        isReadOnly: Boolean,
+        sync: Boolean = false
     ) {
         if (documentId.isBlank()) {
             return
@@ -40,7 +41,10 @@ class ReaderViewModel(
                 totalPages = totalPages
             )
         }
-        saveCoordinator.flushBlocking()
+
+        if (sync) {
+            saveCoordinator.flushBlocking()
+        }
     }
 
     fun closeCoordinator() {

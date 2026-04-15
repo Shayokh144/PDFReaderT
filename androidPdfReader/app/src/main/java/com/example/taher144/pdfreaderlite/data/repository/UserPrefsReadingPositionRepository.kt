@@ -6,27 +6,44 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.taher144.pdfreaderlite.data.model.ReaderSessionState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 
 class UserPrefsReadingPositionRepository(
     private val context: Context
 ) : ReadingPositionRepository {
+    private val mutex = Mutex()
+    private var cachedStates: Map<String, ReaderSessionState>? = null
+
     override suspend fun get(documentId: String): ReaderSessionState? {
-        return states()[documentId]
+        return mutex.withLock {
+            ensureStatesLoaded()[documentId]
+        }
     }
 
     override suspend fun update(state: ReaderSessionState) {
-        val updatedStates = states().toMutableMap().apply {
-            put(state.documentId, state)
-        }
+        mutex.withLock {
+            val current = ensureStatesLoaded()
+            if (current[state.documentId] == state) return@withLock
 
-        context.pdfReaderDataStore.edit { preferences ->
-            preferences[ReadingStateKey] = encodeStates(updatedStates.values.toList())
+            val updatedStates = current.toMutableMap().apply {
+                put(state.documentId, state)
+            }
+            cachedStates = updatedStates
+
+            context.pdfReaderDataStore.edit { preferences ->
+                preferences[ReadingStateKey] = encodeStates(updatedStates.values.toList())
+            }
         }
     }
 
-    private suspend fun states(): Map<String, ReaderSessionState> {
+    private suspend fun ensureStatesLoaded(): Map<String, ReaderSessionState> {
+        return cachedStates ?: loadStatesFromDisk().also { cachedStates = it }
+    }
+
+    private suspend fun loadStatesFromDisk(): Map<String, ReaderSessionState> {
         return context.pdfReaderDataStore.data.map { preferences ->
             decodeStates(preferences[ReadingStateKey].orEmpty())
         }.first()

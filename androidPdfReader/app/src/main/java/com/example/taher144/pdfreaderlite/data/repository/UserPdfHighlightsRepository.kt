@@ -8,6 +8,8 @@ import androidx.pdf.selection.model.TextSelection
 import androidx.pdf.view.Highlight
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -28,10 +30,12 @@ interface UserPdfHighlightsRepository {
 class UserPrefsUserPdfHighlightsRepository(
     private val context: Context,
 ) : UserPdfHighlightsRepository {
+    private val mutex = Mutex()
+    private var cachedMap: Map<String, String>? = null
 
     override suspend fun getHighlights(documentId: String): List<Highlight> {
         if (documentId.isBlank()) return emptyList()
-        val map = loadMap()
+        val map = mutex.withLock { ensureMapLoaded() }
         val jsonArray = map[documentId] ?: return emptyList()
         return parseHighlightsJson(jsonArray)
     }
@@ -42,25 +46,32 @@ class UserPrefsUserPdfHighlightsRepository(
         colorArgb: Int,
     ) {
         if (documentId.isBlank()) return
-        val map = loadMap().toMutableMap()
-        val existing = map[documentId]?.let { JSONArray(it) } ?: JSONArray()
-        for (bound in selection.bounds) {
-            existing.put(
-                JSONObject().apply {
-                    put("page", bound.pageNum)
-                    put("left", bound.left.toDouble())
-                    put("top", bound.top.toDouble())
-                    put("right", bound.right.toDouble())
-                    put("bottom", bound.bottom.toDouble())
-                    put("color", colorArgb)
-                },
-            )
+        mutex.withLock {
+            val map = ensureMapLoaded().toMutableMap()
+            val existing = map[documentId]?.let { JSONArray(it) } ?: JSONArray()
+            for (bound in selection.bounds) {
+                existing.put(
+                    JSONObject().apply {
+                        put("page", bound.pageNum)
+                        put("left", bound.left.toDouble())
+                        put("top", bound.top.toDouble())
+                        put("right", bound.right.toDouble())
+                        put("bottom", bound.bottom.toDouble())
+                        put("color", colorArgb)
+                    },
+                )
+            }
+            map[documentId] = existing.toString()
+            cachedMap = map
+            saveMap(map)
         }
-        map[documentId] = existing.toString()
-        saveMap(map)
     }
 
-    private suspend fun loadMap(): Map<String, String> {
+    private suspend fun ensureMapLoaded(): Map<String, String> {
+        return cachedMap ?: loadMapFromDisk().also { cachedMap = it }
+    }
+
+    private suspend fun loadMapFromDisk(): Map<String, String> {
         return context.pdfReaderDataStore.data.map { preferences ->
             decodeMap(preferences[HighlightsBlobKey].orEmpty())
         }.first()

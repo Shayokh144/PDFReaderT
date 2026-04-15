@@ -64,16 +64,16 @@ class AndroidxPdfReaderActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        persistReadingState()
+        persistReadingState(sync = false)
     }
 
     override fun onDestroy() {
-        persistReadingState()
+        persistReadingState(sync = true)
         viewModel.closeCoordinator()
         super.onDestroy()
     }
 
-    private fun persistReadingState() {
+    private fun persistReadingState(sync: Boolean = false) {
         if (documentId.isBlank()) return
 
         val currentPage = getCurrentPageFromFragment()
@@ -81,7 +81,8 @@ class AndroidxPdfReaderActivity : AppCompatActivity() {
             documentId = documentId,
             currentPage = currentPage,
             totalPages = totalPages,
-            isReadOnly = false
+            isReadOnly = false,
+            sync = sync
         )
     }
 
@@ -97,7 +98,7 @@ class AndroidxPdfReaderActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 while (true) {
                     delay(PERSIST_INTERVAL_MS)
-                    persistReadingState()
+                    persistReadingState(sync = false)
                 }
             }
         }

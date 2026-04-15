@@ -7,28 +7,46 @@ import com.example.taher144.pdfreaderlite.data.model.RecentPdfRecord
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 
 class UserPrefsRecentFilesRepository(
     private val context: Context
 ) : RecentFilesRepository {
+    private val mutex = Mutex()
+    private var cachedRecords: List<RecentPdfRecord>? = null
+
     override val recentFiles: Flow<List<RecentPdfRecord>> =
         context.pdfReaderDataStore.data.map { preferences ->
             decodeRecords(preferences[RecentFilesKey].orEmpty())
+        }.onEach { records ->
+            // No mutex: same mutex is held during persist(); withLock here deadlocks reentrantly.
+            cachedRecords = records
         }
 
     override suspend fun upsert(record: RecentPdfRecord) {
-        val updatedRecords = currentRecords()
-            .filterNot { it.id == record.id }
-            .plus(record)
-            .sortedByDescending { it.lastOpenedAt }
+        mutex.withLock {
+            val updatedRecords = ensureRecordsLoaded()
+                .filterNot { it.id == record.id }
+                .plus(record)
+                .sortedByDescending { it.lastOpenedAt }
 
-        persist(updatedRecords)
+            if (cachedRecords == updatedRecords) return@withLock
+            cachedRecords = updatedRecords
+            persist(updatedRecords)
+        }
     }
 
     override suspend fun delete(documentId: String) {
-        persist(currentRecords().filterNot { it.id == documentId })
+        mutex.withLock {
+            val updatedRecords = ensureRecordsLoaded().filterNot { it.id == documentId }
+            if (cachedRecords == updatedRecords) return@withLock
+            cachedRecords = updatedRecords
+            persist(updatedRecords)
+        }
     }
 
     override suspend fun updateReadingProgress(
@@ -36,22 +54,35 @@ class UserPrefsRecentFilesRepository(
         currentPage: Int,
         totalPages: Int
     ) {
-        val updatedRecords = currentRecords().map { record ->
-            if (record.id != documentId) {
-                record
-            } else {
-                record.copy(
-                    lastPage = currentPage,
-                    totalPages = totalPages
-                )
+        mutex.withLock {
+            val current = ensureRecordsLoaded()
+            val updatedRecords = current.map { record ->
+                if (record.id != documentId) {
+                    record
+                } else {
+                    record.copy(
+                        lastPage = currentPage,
+                        totalPages = totalPages
+                    )
+                }
             }
-        }
 
-        persist(updatedRecords)
+            if (current == updatedRecords) return@withLock
+            cachedRecords = updatedRecords
+            persist(updatedRecords)
+        }
     }
 
-    private suspend fun currentRecords(): List<RecentPdfRecord> {
-        return recentFiles.first()
+    private suspend fun ensureRecordsLoaded(): List<RecentPdfRecord> {
+        return cachedRecords ?: loadRecordsFromDisk().also { cachedRecords = it }
+    }
+
+    private suspend fun loadRecordsFromDisk(): List<RecentPdfRecord> {
+        // Must not use recentFiles.first(): that flow's onEach would need this mutex while we
+        // already hold it from upsert/delete/updateReadingProgress.
+        return context.pdfReaderDataStore.data.map { preferences ->
+            decodeRecords(preferences[RecentFilesKey].orEmpty())
+        }.first()
     }
 
     private suspend fun persist(records: List<RecentPdfRecord>) {
