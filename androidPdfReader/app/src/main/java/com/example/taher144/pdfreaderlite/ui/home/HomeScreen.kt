@@ -7,14 +7,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +27,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,71 +60,129 @@ fun HomeScreen(
     onRecentFileDeleted: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(EmptyStateBackground)
             .padding(horizontal = 16.dp, vertical = 20.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(72.dp))
-            DocumentPlaceholderIcon()
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = stringResource(R.string.pdf_reader_empty_title),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = stringResource(R.string.pdf_reader_empty_description),
-                style = MaterialTheme.typography.bodyLarge,
-                color = EmptyStateIconTint,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-
-            if (uiState.recentFiles.isNotEmpty()) {
-                RecentFilesSection(
-                    records = uiState.recentFiles,
-                    onRecentFileSelected = onRecentFileSelected,
-                    onRecentFileDeleted = onRecentFileDeleted,
-                    modifier = Modifier.weight(1f, fill = true)
-                )
-            } else {
-                Spacer(modifier = Modifier.weight(1f, fill = true))
-            }
-
-            Button(
-                onClick = onSelectPdf,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = SelectButtonColor,
-                    contentColor = Color.Black
-                )
+        if (maxWidth < 600.dp) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (uiState.isOpeningDocument) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.Black,
-                        strokeWidth = 2.dp
+                EmptyStateContent()
+                Spacer(modifier = Modifier.height(32.dp))
+                if (uiState.recentFiles.isNotEmpty()) {
+                    RecentFilesSection(
+                        records = uiState.recentFiles,
+                        onRecentFileSelected = onRecentFileSelected,
+                        onRecentFileDeleted = onRecentFileDeleted,
+                        modifier = Modifier.weight(1f, fill = true)
                     )
                 } else {
-                    Text(
-                        text = stringResource(R.string.pdf_reader_select_pdf),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                    Spacer(modifier = Modifier.weight(1f, fill = true))
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                SelectPdfButton(
+                    isOpeningDocument = uiState.isOpeningDocument,
+                    onSelectPdf = onSelectPdf
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    EmptyStateContent()
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
+                    if (uiState.recentFiles.isNotEmpty()) {
+                        RecentFilesSection(
+                            records = uiState.recentFiles,
+                            onRecentFileSelected = onRecentFileSelected,
+                            onRecentFileDeleted = onRecentFileDeleted,
+                            modifier = Modifier.weight(1f, fill = true)
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f, fill = true))
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    SelectPdfButton(
+                        isOpeningDocument = uiState.isOpeningDocument,
+                        onSelectPdf = onSelectPdf
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun EmptyStateContent(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(32.dp))
+        DocumentPlaceholderIcon()
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = stringResource(R.string.pdf_reader_empty_title),
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = stringResource(R.string.pdf_reader_empty_description),
+            style = MaterialTheme.typography.bodyLarge,
+            color = EmptyStateIconTint,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun SelectPdfButton(
+    isOpeningDocument: Boolean,
+    onSelectPdf: () -> Unit
+) {
+    Button(
+        onClick = onSelectPdf,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        shape = RoundedCornerShape(10.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = SelectButtonColor,
+            contentColor = Color.Black
+        )
+    ) {
+        if (isOpeningDocument) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = Color.Black,
+                strokeWidth = 2.dp
+            )
+        } else {
+            Text(
+                text = stringResource(R.string.pdf_reader_select_pdf),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -190,8 +255,12 @@ private fun RecentFileCard(
                 color = Color.White,
                 fontWeight = FontWeight.SemiBold
             )
-            TextButton(onClick = onDelete) {
-                Text(text = stringResource(R.string.pdf_reader_remove))
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.pdf_reader_remove),
+                    tint = EmptyStateIconTint
+                )
             }
         }
         Spacer(modifier = Modifier.height(6.dp))

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">PDF Reader</string>
+    <string name="app_name">PDFReaderLite</string>
     <string name="pdf_reader_close">Close</string>
     <string name="pdf_reader_remove">Remove</string>
     <string name="pdf_reader_recent_file_unavailable">This file is no longer available. It may have been moved, deleted, or you may no longer have permission to open it.</string>
