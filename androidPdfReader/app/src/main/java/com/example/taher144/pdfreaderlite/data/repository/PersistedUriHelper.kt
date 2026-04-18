@@ -29,10 +29,20 @@ class PersistedUriHelper(
         }
     }
 
+//    fun canRead(uri: Uri): Boolean {
+//        return runCatching {
+//            context.contentResolver.openInputStream(uri)?.close()
+//            true
+//        }.getOrDefault(false)
+//    }
+
     fun canRead(uri: Uri): Boolean {
         return runCatching {
-            context.contentResolver.openInputStream(uri)?.close()
-            true
+            // We only need to see if we CAN open the descriptor.
+            // We don't need the stream buffers.
+            context.contentResolver.openFileDescriptor(uri, "r")?.use {
+                true
+            } ?: false
         }.getOrDefault(false)
     }
 

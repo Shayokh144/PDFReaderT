@@ -10,10 +10,32 @@
         android:layout_height="?attr/actionBarSize"
         android:background="@android:color/black" />
 
-    <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/pdf_fragment_container"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1">
+
+        <androidx.fragment.app.FragmentContainerView
+            android:id="@+id/pdf_fragment_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <FrameLayout
+            android:id="@+id/reader_resume_loading_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#E6000000"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:contentDescription="@string/pdf_reader_restoring_position"
+                android:indeterminate="true" />
+        </FrameLayout>
+    </FrameLayout>
 
 </LinearLayout>

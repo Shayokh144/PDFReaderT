@@ -1,8 +1,10 @@
 package com.example.taher144.pdfreaderlite.reader
 
 import android.content.Context
+import android.graphics.RectF
 import android.net.Uri
 import android.os.Bundle
+import android.util.SparseArray
 import androidx.core.os.bundleOf
 import androidx.pdf.ExperimentalPdfApi
 import androidx.pdf.PdfDocument
@@ -20,6 +22,9 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
 
     private var pdfViewRef: PdfView? = null
     private var pendingInitialPage: Int? = null
+    private var resumePositionListener: PdfView.OnViewportChangedListener? = null
+    private var resumePositionTimeout: Runnable? = null
+    private var resumePositionTargetPage: Int = -1
 
     /** In-memory list shared with [ReaderPdfSelectionConfigurator]; persisted via app DataStore. */
     private val userSessionHighlights = mutableListOf<Highlight>()
@@ -35,24 +40,26 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
     val currentVisiblePage: Int
         get() {
             val view = pdfViewRef ?: return arguments?.getInt(ARG_INITIAL_PAGE, 0) ?: 0
-            val totalPages = view.pdfDocument?.pageCount ?: 0
-            val maxIndex = if (totalPages > 0) totalPages - 1 else null
+            return visibleCenterPage(view)
+        }
 
-            val w = view.width
-            val h = view.height
-            if (w > 0 && h > 0) {
-                val center = view.viewToPdfPoint(w / 2f, h / 2f)
-                if (center != null) {
-                    return if (maxIndex != null) {
-                        center.pageNum.coerceIn(0, maxIndex)
-                    } else {
-                        center.pageNum.coerceAtLeast(0)
-                    }
+    private fun visibleCenterPage(view: PdfView): Int {
+        val totalPages = view.pdfDocument?.pageCount ?: 0
+        val maxIndex = if (totalPages > 0) totalPages - 1 else null
+        val w = view.width
+        val h = view.height
+        if (w > 0 && h > 0) {
+            val center = view.viewToPdfPoint(w / 2f, h / 2f)
+            if (center != null) {
+                return if (maxIndex != null) {
+                    center.pageNum.coerceIn(0, maxIndex)
+                } else {
+                    center.pageNum.coerceAtLeast(0)
                 }
             }
-
-            return fallbackPageIndexFromVisibleRange(view, maxIndex)
         }
+        return fallbackPageIndexFromVisibleRange(view, maxIndex)
+    }
 
     private fun fallbackPageIndexFromVisibleRange(view: PdfView, maxIndex: Int?): Int {
         val first = view.firstVisiblePage
@@ -106,9 +113,17 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
         val initialPage = pendingInitialPage ?: arguments?.getInt(ARG_INITIAL_PAGE, 0) ?: 0
         pendingInitialPage = null
         if (initialPage > 0) {
-            // PdfView only wires PdfDocument into the scroller after this callback; scrolling
-            // immediately throws IllegalStateException ("without PdfDocument").
-            scheduleScrollToPage(initialPage)
+            val pdfView = pdfViewRef
+            if (pdfView != null) {
+                startResumePositionOverlay(pdfView, initialPage)
+                // PdfView only wires PdfDocument into the scroller after this callback; scrolling
+                // immediately throws IllegalStateException ("without PdfDocument").
+                scheduleScrollToPage(initialPage) {
+                    clearResumePositionOverlay(pdfView)
+                }
+            } else {
+                (activity as? ReaderResumeLoadingController)?.setResumeLoadingVisible(false)
+            }
         }
     }
 
@@ -130,19 +145,60 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
         }
     }
 
-    private fun scheduleScrollToPage(page: Int) {
+    private fun scheduleScrollToPage(page: Int, onScrollGaveUp: (() -> Unit)? = null) {
         val view = pdfViewRef ?: return
         fun attempt(tryIndex: Int) {
             if (!isAdded) return
             val v = pdfViewRef ?: return
             if (runCatching { v.scrollToPage(page) }.isSuccess) return
-            if (tryIndex >= MAX_SCROLL_TO_PAGE_ATTEMPTS) return
+            if (tryIndex >= MAX_SCROLL_TO_PAGE_ATTEMPTS) {
+                onScrollGaveUp?.invoke()
+                return
+            }
             v.postDelayed({ attempt(tryIndex + 1) }, SCROLL_TO_PAGE_RETRY_DELAY_MS)
         }
         view.post { attempt(0) }
     }
 
+    private fun startResumePositionOverlay(pdfView: PdfView, targetPage: Int) {
+        resumePositionTargetPage = targetPage
+        val listener = object : PdfView.OnViewportChangedListener {
+            override fun onViewportChanged(
+                firstVisiblePage: Int,
+                visiblePagesCount: Int,
+                pageLocations: SparseArray<RectF>,
+                zoomLevel: Float,
+            ) {
+                if (!isAdded || resumePositionTargetPage < 0) return
+                val v = pdfViewRef ?: return
+                if (visibleCenterPage(v) != resumePositionTargetPage) return
+                clearResumePositionOverlay(pdfView)
+            }
+        }
+        resumePositionListener = listener
+        pdfView.addOnViewportChangedListener(listener)
+        val timeout = Runnable {
+            if (!isAdded) return@Runnable
+            clearResumePositionOverlay(pdfView)
+        }
+        resumePositionTimeout = timeout
+        pdfView.postDelayed(timeout, RESUME_LOADING_TIMEOUT_MS)
+    }
+
+    private fun clearResumePositionOverlay(pdfView: PdfView) {
+        if (resumePositionListener == null && resumePositionTimeout == null && resumePositionTargetPage < 0) {
+            return
+        }
+        resumePositionTimeout?.let { pdfView.removeCallbacks(it) }
+        resumePositionTimeout = null
+        resumePositionListener?.let { pdfView.removeOnViewportChangedListener(it) }
+        resumePositionListener = null
+        resumePositionTargetPage = -1
+        (activity as? ReaderResumeLoadingController)?.setResumeLoadingVisible(false)
+    }
+
     override fun onDestroyView() {
+        pdfViewRef?.let { clearResumePositionOverlay(it) }
         pdfViewRef = null
         super.onDestroyView()
     }
@@ -150,6 +206,7 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
     companion object {
         private const val MAX_SCROLL_TO_PAGE_ATTEMPTS = 25
         private const val SCROLL_TO_PAGE_RETRY_DELAY_MS = 32L
+        private const val RESUME_LOADING_TIMEOUT_MS = 15_000L
 
         private const val ARG_URI = "document_uri"
         private const val ARG_INITIAL_PAGE = "initial_page"

@@ -21,7 +21,7 @@ object PdfHighlightPersistence {
 
     /** Standard translucent yellow used for both overlay and embedded annotation color. */
     @JvmField
-    val DefaultHighlightColorArgb: Int = Color.argb(0xCC, 0xFF, 0xEB, 0x3B)
+    val DefaultHighlightColorArgb: Int = Color.argb(0xFF, 0xFA, 0xFA, 0x28)
 
     /**
      * Inserts one [HighlightAnnotation] per page touched by [selection], with one [RectF] per

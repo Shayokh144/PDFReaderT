@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
@@ -16,9 +17,11 @@ import com.example.taher144.pdfreaderlite.ui.reader.ReaderViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-class AndroidxPdfReaderActivity : AppCompatActivity() {
+class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingController {
 
     private val viewModel: ReaderViewModel by viewModels()
+
+    private lateinit var readerResumeLoadingOverlay: View
 
     private val documentId: String by lazy {
         intent.getStringExtra(EXTRA_DOCUMENT_ID).orEmpty()
@@ -37,6 +40,13 @@ class AndroidxPdfReaderActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_androidx_pdf_reader)
+
+        readerResumeLoadingOverlay = findViewById(R.id.reader_resume_loading_overlay)
+        if (savedInstanceState == null && initialPage > 0) {
+            setResumeLoadingVisible(true)
+        } else {
+            setResumeLoadingVisible(false)
+        }
 
         val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
@@ -60,6 +70,10 @@ class AndroidxPdfReaderActivity : AppCompatActivity() {
         }
 
         startPeriodicPagePersistence()
+    }
+
+    override fun setResumeLoadingVisible(visible: Boolean) {
+        readerResumeLoadingOverlay.visibility = if (visible) View.VISIBLE else View.GONE
     }
 
     override fun onPause() {
