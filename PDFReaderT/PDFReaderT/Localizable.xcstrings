@@ -169,6 +169,17 @@
         }
       }
     },
+    "pdf_reader.recent_file_date_added_just_now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Just now"
+          }
+        }
+      }
+    },
     "pdf_reader.save_annotations_error_message" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -210,6 +221,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Select PDF"
+          }
+        }
+      }
+    },
+    "pdf_reader.reading_time_minutes_format" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld min"
+          }
+        }
+      }
+    },
+    "pdf_reader.reading_time_hours_whole_format" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld h"
+          }
+        }
+      }
+    },
+    "pdf_reader.reading_time_hours_decimal_format" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$.1f h"
           }
         }
       }

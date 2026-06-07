@@ -59,8 +59,13 @@ struct PDFReaderView: View {
                 viewModel.onSelectedPDFURLChanged(newURL)
             }
             .onChange(of: scenePhase) { _, newPhase in
-                if newPhase == .background {
+                switch newPhase {
+                case .active:
+                    viewModel.beginReadingSession()
+                case .background:
                     viewModel.onDidEnterBackground()
+                default:
+                    break
                 }
             }
             .alert(
@@ -205,9 +210,11 @@ struct PDFReaderView: View {
             }
             .onAppear {
                 viewModel.startPageSaveTimer()
+                viewModel.beginReadingSession()
             }
             .onDisappear {
                 viewModel.stopPageSaveTimer()
+                viewModel.commitReadingTimeIfNeeded()
                 viewModel.saveCurrentPage()
             }
         }

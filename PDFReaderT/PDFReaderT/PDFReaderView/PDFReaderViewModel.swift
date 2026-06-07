@@ -46,6 +46,9 @@ final class PDFReaderViewModel: ObservableObject {
     
     private var pageSaveTimer: Timer?
     private let recentFilesStore: RecentFilesStoring
+
+    private var readingSessionStart: Date?
+    private var readingSessionFileId: UUID?
     
     init(recentFilesStore: RecentFilesStoring = UserDefaultsRecentFilesStore()) {
         self.recentFilesStore = recentFilesStore
@@ -77,6 +80,7 @@ final class PDFReaderViewModel: ObservableObject {
     }
     
     func onSelectedPDFURLChanged(_ newURL: URL?) {
+        commitReadingTimeIfNeeded()
         if let url = newURL {
             currentPage = 0
             currentFileId = nil
@@ -86,8 +90,39 @@ final class PDFReaderViewModel: ObservableObject {
     }
     
     func onDidEnterBackground() {
+        commitReadingTimeIfNeeded()
         saveCurrentPage()
         saveFlusher?.flushSync()
+    }
+
+    /// Call when the PDF viewer becomes visible while the app is active.
+    func beginReadingSession() {
+        guard let fid = currentFileId, readingSessionStart == nil else { return }
+        readingSessionStart = Date()
+        readingSessionFileId = fid
+    }
+
+    /// Pauses tracking (e.g. leaving the reader or app background) and persists elapsed time for the session file.
+    func commitReadingTimeIfNeeded() {
+        guard let fid = readingSessionFileId,
+              let start = readingSessionStart,
+              let index = recentFiles.firstIndex(where: { $0.id == fid }) else {
+            readingSessionStart = nil
+            readingSessionFileId = nil
+            return
+        }
+
+        let delta = Date().timeIntervalSince(start)
+        readingSessionStart = nil
+        readingSessionFileId = nil
+
+        guard delta > 0 else { return }
+
+        var updatedFile = recentFiles[index]
+        updatedFile.readingTimeSeconds += delta
+        recentFiles[index] = updatedFile
+        saveRecentFilesToUserDefaults()
+        log.debug("\(AppLog.scopePrefix(for: Self.self)) saved reading time +\(delta, privacy: .public)s for file \(updatedFile.name)")
     }
     
     func deleteFile(at offsets: IndexSet) {
@@ -139,7 +174,8 @@ final class PDFReaderViewModel: ObservableObject {
     
     func closePDFReader() {
         guard !isSavingBeforeClose else { return }
-        
+
+        commitReadingTimeIfNeeded()
         saveCurrentPage()
         
         guard let saveFlusher else {
@@ -189,7 +225,8 @@ final class PDFReaderViewModel: ObservableObject {
         
         let fileName = url.lastPathComponent
         let fileSize = getFileSize(url)
-        
+        let preservedReadingTime = recentFiles.first(where: { $0.name == fileName })?.readingTimeSeconds ?? 0
+
         let recentFile = RecentFile(
             id: UUID(),
             name: fileName,
@@ -197,7 +234,8 @@ final class PDFReaderViewModel: ObservableObject {
             dateAdded: Date(),
             fileSize: fileSize,
             lastPageNumber: 0,
-            totalPages: totalPages
+            totalPages: totalPages,
+            readingTimeSeconds: preservedReadingTime
         )
         
         currentFileId = recentFile.id

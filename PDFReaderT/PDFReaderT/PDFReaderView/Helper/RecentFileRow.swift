@@ -10,6 +10,44 @@ import SwiftUI
 struct RecentFileRow: View {
     let file: RecentFile
     let onTap: () -> Void
+
+    /// Minutes when total reading time is at most 60 minutes; otherwise hours (whole or one decimal).
+    private func formattedReadingTime(_ seconds: TimeInterval) -> String {
+        let totalMinutes = seconds / 60.0
+        if totalMinutes <= 60 {
+            let minutes = max(0, Int((seconds / 60.0).rounded(.toNearestOrAwayFromZero)))
+            return String(
+                format: String(localized: "pdf_reader.reading_time_minutes_format"),
+                locale: .current,
+                minutes
+            )
+        }
+        let hours = seconds / 3600.0
+        if abs(hours - hours.rounded()) < 0.01 {
+            return String(
+                format: String(localized: "pdf_reader.reading_time_hours_whole_format"),
+                locale: .current,
+                Int(hours.rounded())
+            )
+        }
+        let roundedTenth = (hours * 10).rounded() / 10
+        return String(
+            format: String(localized: "pdf_reader.reading_time_hours_decimal_format"),
+            locale: .current,
+            roundedTenth
+        )
+    }
+
+    /// Stable caption without live second-by-second updates from `Text(_:style: .relative)`.
+    private func formattedDateAdded(_ date: Date) -> String {
+        let secondsAgo = Date().timeIntervalSince(date)
+        if secondsAgo < 60 {
+            return String(localized: "pdf_reader.recent_file_date_added_just_now")
+        }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: .now)
+    }
     
     var body: some View {
         Button(action: onTap) {
@@ -45,10 +83,17 @@ struct RecentFileRow: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         }
+
+                        Text("pdf_reader.list_separator")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Text(formattedReadingTime(file.readingTimeSeconds))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                         
                         Spacer()
-                        // By using .relative, SwiftUI automatically calculates the difference between that date and the current time.
-                        Text(file.dateAdded, style: .relative)
+                        Text(formattedDateAdded(file.dateAdded))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
