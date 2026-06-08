@@ -39,24 +39,30 @@ struct PDFViewer: UIViewRepresentable {
     let url: URL
     let initialPage: Int?
     @Binding var currentPage: Int
+    @Binding var searchNavigation: SearchNavigationRequest?
     let onReadOnlyPDF: () -> Void
     let onSaveFailed: () -> Void
     let onSaveFlusherReady: (SaveFlusher) -> Void
+    let onSingleTap: () -> Void
     
     init(
         url: URL,
         initialPage: Int?,
         currentPage: Binding<Int>,
+        searchNavigation: Binding<SearchNavigationRequest?> = .constant(nil),
         onReadOnlyPDF: @escaping () -> Void = {},
         onSaveFailed: @escaping () -> Void = {},
-        onSaveFlusherReady: @escaping (SaveFlusher) -> Void = { _ in }
+        onSaveFlusherReady: @escaping (SaveFlusher) -> Void = { _ in },
+        onSingleTap: @escaping () -> Void = {}
     ) {
         self.url = url
         self.initialPage = initialPage
         _currentPage = currentPage
+        _searchNavigation = searchNavigation
         self.onReadOnlyPDF = onReadOnlyPDF
         self.onSaveFailed = onSaveFailed
         self.onSaveFlusherReady = onSaveFlusherReady
+        self.onSingleTap = onSingleTap
     }
     
     func makeCoordinator() -> Coordinator {
@@ -80,6 +86,14 @@ struct PDFViewer: UIViewRepresentable {
         // Reload when the URL changes, otherwise keep the current document.
         if pdfView.document == nil || context.coordinator.loadedDocumentURL != url {
             loadDocument(into: pdfView, coordinator: context.coordinator)
+        }
+        
+        // Navigate to and highlight a search result
+        if let nav = searchNavigation {
+            context.coordinator.navigateToSearchResult(nav, in: pdfView)
+            DispatchQueue.main.async {
+                self.searchNavigation = nil
+            }
         }
     }
     
@@ -182,6 +196,9 @@ extension PDFViewer {
                 }
                 self.createHighlights(from: selection, in: pdfView)
             }
+            highlightablePDFView.onSingleTap = { [weak self] in
+                self?.parent.onSingleTap()
+            }
             
             if !didRegisterFlusher {
                 didRegisterFlusher = true
@@ -199,6 +216,55 @@ extension PDFViewer {
                 )
                 parent.onSaveFlusherReady(flusher)
             }
+        }
+        
+        private var searchHighlightWorkItem: DispatchWorkItem?
+        private var temporaryAnnotations: [PDFAnnotation] = []
+        
+        func navigateToSearchResult(_ nav: SearchNavigationRequest, in pdfView: PDFView) {
+            guard let document = pdfView.document else { return }
+            
+            let selections = document.findString(nav.searchText, withOptions: [.caseInsensitive])
+            guard nav.matchIndex < selections.count else { return }
+            
+            let selection = selections[nav.matchIndex]
+            
+            // Remove any previous temporary annotations
+            removeTemporaryAnnotations()
+            
+            // Navigate to the selection
+            pdfView.go(to: selection)
+            
+            // Add temporary highlight annotations on each line of the selection
+            let lineSelections = selection.selectionsByLine()
+            for lineSelection in lineSelections {
+                guard let page = lineSelection.pages.first else { continue }
+                let bounds = lineSelection.bounds(for: page)
+                guard !bounds.isEmpty, !bounds.isNull else { continue }
+                
+                let annotation = PDFAnnotation(bounds: bounds, forType: .highlight, withProperties: nil)
+                annotation.color = UIColor.systemYellow.withAlphaComponent(0.5)
+                page.addAnnotation(annotation)
+                temporaryAnnotations.append(annotation)
+            }
+            
+            pdfView.setNeedsDisplay()
+            
+            // Remove temporary annotations after 2 seconds
+            searchHighlightWorkItem?.cancel()
+            let clearWork = DispatchWorkItem { [weak self] in
+                self?.removeTemporaryAnnotations()
+                pdfView.setNeedsDisplay()
+            }
+            searchHighlightWorkItem = clearWork
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: clearWork)
+        }
+        
+        private func removeTemporaryAnnotations() {
+            for annotation in temporaryAnnotations {
+                annotation.page?.removeAnnotation(annotation)
+            }
+            temporaryAnnotations.removeAll()
         }
         
         func resetScaleTracking() {
@@ -385,9 +451,11 @@ private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate
     var highlightMenuTitle: String = "Highlight"
     var latestSelection: PDFSelection?
     var onLayoutChanged: ((HighlightablePDFView) -> Void)?
+    var onSingleTap: (() -> Void)?
     
     private lazy var editInteraction = UIEditMenuInteraction(delegate: self)
     private var didAddInteraction = false
+    private var didAddTapGesture = false
     private var menuWorkItem: DispatchWorkItem?
     private var retryWorkItem: DispatchWorkItem?
     private var isOurMenuVisible = false
@@ -427,10 +495,44 @@ private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate
             addInteraction(editInteraction)
             didAddInteraction = true
         }
+        if window != nil && !didAddTapGesture {
+            let tap = UITapGestureRecognizer(target: self, action: #selector(handleSingleTap(_:)))
+            tap.numberOfTapsRequired = 1
+            tap.delegate = self
+            addGestureRecognizer(tap)
+            didAddTapGesture = true
+        }
         if window != nil {
             disableScrollToTopBehavior()
             stripCompetingEditMenuInteractions()
         }
+    }
+    
+    @objc private func handleSingleTap(_ gesture: UITapGestureRecognizer) {
+        onSingleTap?()
+    }
+    
+    // MARK: UIGestureRecognizerDelegate (inherited from PDFView)
+    
+    override func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        false
+    }
+    
+    override func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        if let tap = otherGestureRecognizer as? UITapGestureRecognizer, tap.numberOfTapsRequired == 2 {
+            return true
+        }
+        return false
+    }
+    
+    override func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        false
     }
     
     /// Called by the coordinator on every `PDFViewSelectionChanged` notification.

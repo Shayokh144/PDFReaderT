@@ -27,6 +27,10 @@ struct PDFReaderViewUIModel {
     let showingDocumentPicker: Bool
     let okOnlyAlert: OKOnlyAlertContent?
     let isSavingBeforeClose: Bool
+    let isFullScreen: Bool
+    let isSearching: Bool
+    let searchResults: [PDFSearchResult]
+    let searchNavigation: SearchNavigationRequest?
 }
 
 @MainActor
@@ -41,10 +45,16 @@ final class PDFReaderViewModel: ObservableObject {
     @Published var currentFileId: UUID? = nil
     @Published private(set) var okOnlyAlert: OKOnlyAlertContent?
     @Published private(set) var isSavingBeforeClose = false
+    @Published var isFullScreen = false
+    @Published var isSearching = false
+    @Published var searchText = ""
+    @Published private(set) var searchResults: [PDFSearchResult] = []
+    @Published var searchNavigation: SearchNavigationRequest?
     
     var saveFlusher: SaveFlusher?
     
     private var pageSaveTimer: Timer?
+    private var searchDebounceTask: Task<Void, Never>?
     private let recentFilesStore: RecentFilesStoring
 
     private var readingSessionStart: Date?
@@ -73,6 +83,96 @@ final class PDFReaderViewModel: ObservableObject {
     
     func dismissOKOnlyAlert() {
         okOnlyAlert = nil
+    }
+    
+    func toggleFullScreen() {
+        isFullScreen.toggle()
+    }
+    
+    // MARK: - Search
+    
+    func performSearch() {
+        searchDebounceTask?.cancel()
+        
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            searchResults = []
+            return
+        }
+        
+        guard let url = selectedPDFURL else { return }
+        
+        searchDebounceTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            
+            let results = await Self.findMatches(query: query, fileURL: url)
+            guard !Task.isCancelled else { return }
+            
+            self.searchResults = results
+        }
+    }
+    
+    func selectSearchResult(_ result: PDFSearchResult) {
+        searchNavigation = SearchNavigationRequest(
+            searchText: searchText,
+            matchIndex: result.matchIndex
+        )
+        isSearching = false
+    }
+    
+    private nonisolated static func findMatches(query: String, fileURL: URL) async -> [PDFSearchResult] {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                guard fileURL.startAccessingSecurityScopedResource() else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                defer { fileURL.stopAccessingSecurityScopedResource() }
+                
+                guard let document = PDFDocument(url: fileURL) else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                
+                let selections = document.findString(query, withOptions: [.caseInsensitive])
+                
+                let results: [PDFSearchResult] = selections.enumerated().compactMap { index, selection in
+                    guard let page = selection.pages.first else { return nil }
+                    let pageIndex = document.index(for: page)
+                    let snippet = buildSnippet(from: selection, on: page, maxLength: 80)
+                    return PDFSearchResult(pageIndex: pageIndex, snippet: snippet, matchIndex: index, selection: selection)
+                }
+                
+                continuation.resume(returning: results)
+            }
+        }
+    }
+    
+    private nonisolated static func buildSnippet(from selection: PDFSelection, on page: PDFPage, maxLength: Int) -> String {
+        guard let matchText = selection.string, !matchText.isEmpty,
+              let pageText = page.string else {
+            return selection.string ?? ""
+        }
+        
+        let flatPageText = pageText.replacingOccurrences(of: "\n", with: " ")
+        let flatMatch = matchText.replacingOccurrences(of: "\n", with: " ")
+        
+        guard let matchRange = flatPageText.range(of: flatMatch, options: .caseInsensitive) else {
+            return String(flatMatch.prefix(maxLength))
+        }
+        
+        let contextChars = (maxLength - flatMatch.count) / 2
+        let snippetStart = flatPageText.index(matchRange.lowerBound, offsetBy: -contextChars, limitedBy: flatPageText.startIndex) ?? flatPageText.startIndex
+        let snippetEnd = flatPageText.index(matchRange.upperBound, offsetBy: contextChars, limitedBy: flatPageText.endIndex) ?? flatPageText.endIndex
+        
+        var snippet = String(flatPageText[snippetStart..<snippetEnd])
+            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        
+        if snippetStart > flatPageText.startIndex { snippet = "…" + snippet }
+        if snippetEnd < flatPageText.endIndex { snippet = snippet + "…" }
+        
+        return snippet
     }
     
     private static func localizedString(for key: String) -> String {
@@ -196,6 +296,12 @@ final class PDFReaderViewModel: ObservableObject {
         currentFileId = nil
         initialPage = nil
         saveFlusher = nil
+        isFullScreen = false
+        isSearching = false
+        searchText = ""
+        searchResults = []
+        searchNavigation = nil
+        searchDebounceTask?.cancel()
     }
     
     func saveRecentFile(_ url: URL) {
@@ -294,7 +400,11 @@ final class PDFReaderViewModel: ObservableObject {
             initialPage: initialPage,
             showingDocumentPicker: showingDocumentPicker,
             okOnlyAlert: okOnlyAlert,
-            isSavingBeforeClose: isSavingBeforeClose
+            isSavingBeforeClose: isSavingBeforeClose,
+            isFullScreen: isFullScreen,
+            isSearching: isSearching,
+            searchResults: searchResults,
+            searchNavigation: searchNavigation
         )
     }
 }

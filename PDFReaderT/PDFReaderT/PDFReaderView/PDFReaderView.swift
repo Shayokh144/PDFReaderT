@@ -36,8 +36,16 @@ struct PDFReaderView: View {
             }
             .navigationTitle(String(localized: "pdf_reader.navigation_title"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(uiModel.isFullScreen ? .hidden : .visible, for: .navigationBar)
             .toolbar {
                 if uiModel.selectedPDFURL != nil {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            viewModel.isSearching = true
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                        }
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(String(localized: "pdf_reader.close")) {
                             viewModel.closePDFReader()
@@ -51,6 +59,10 @@ struct PDFReaderView: View {
                     selectedURL: $viewModel.selectedPDFURL,
                     isPresented: $viewModel.showingDocumentPicker
                 )
+            }
+            .sheet(isPresented: $viewModel.isSearching) {
+                PDFSearchSheet(viewModel: viewModel)
+                    .presentationDetents([.medium, .large])
             }
             .onAppear {
                 viewModel.onAppear()
@@ -84,6 +96,8 @@ struct PDFReaderView: View {
                 }
             }
         }
+        .statusBarHidden(uiModel.isFullScreen)
+        .animation(.easeInOut(duration: 0.2), value: uiModel.isFullScreen)
     }
     
     @ViewBuilder
@@ -163,6 +177,7 @@ struct PDFReaderView: View {
                 url: url,
                 initialPage: uiModel.initialPage,
                 currentPage: $viewModel.currentPage,
+                searchNavigation: $viewModel.searchNavigation,
                 onReadOnlyPDF: {
                     viewModel.presentOKOnlyAlert(
                         titleKey: "pdf_reader.read_only_alert_title",
@@ -177,6 +192,9 @@ struct PDFReaderView: View {
                 },
                 onSaveFlusherReady: { flusher in
                     viewModel.saveFlusher = flusher
+                },
+                onSingleTap: {
+                    viewModel.toggleFullScreen()
                 }
             )
             .overlay(alignment: .bottomTrailing) {
@@ -191,6 +209,8 @@ struct PDFReaderView: View {
                 .background(Color.gray.opacity(0.7))
                 .cornerRadius(8.0)
                 .padding(8.0)
+                .opacity(uiModel.isFullScreen ? 0 : 1)
+                .animation(.easeInOut(duration: 0.2), value: uiModel.isFullScreen)
             }
             .overlay {
                 if uiModel.isSavingBeforeClose {
@@ -208,6 +228,7 @@ struct PDFReaderView: View {
                         }
                 }
             }
+            .ignoresSafeArea()
             .onAppear {
                 viewModel.startPageSaveTimer()
                 viewModel.beginReadingSession()
