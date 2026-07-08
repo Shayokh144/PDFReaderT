@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.View
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -57,11 +58,27 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
         }
 
         toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+        
+        ViewCompat.setOnApplyWindowInsetsListener(toolbar) { view, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(view.paddingLeft, systemBars.top, view.paddingRight, view.paddingBottom)
+            insets
+        }
+        
         setSupportActionBar(toolbar as androidx.appcompat.widget.Toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = ""
 
         pageCounter = findViewById(R.id.page_counter)
+        
+        ViewCompat.setOnApplyWindowInsetsListener(pageCounter) { view, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            // Add the bottom inset to the existing margin
+            val layoutParams = view.layoutParams as android.widget.FrameLayout.LayoutParams
+            layoutParams.bottomMargin = systemBars.bottom + (12 * view.resources.displayMetrics.density).toInt()
+            view.layoutParams = layoutParams
+            insets
+        }
 
         val uri = documentUri
         if (uri == null) {

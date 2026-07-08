@@ -18,8 +18,7 @@
         android:background="@android:color/black"
         android:minHeight="?attr/actionBarSize"
         android:theme="@style/ThemeOverlay.Material3.Dark.ActionBar"
-        app:navigationIconTint="@android:color/white"
-        android:fitsSystemWindows="true" />
+        app:navigationIconTint="@android:color/white" />
 
     <TextView
         android:id="@+id/page_counter"
