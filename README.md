@@ -95,7 +95,6 @@ Use this list as the baseline scope for building an Android version with equival
 
 ## Out-of-Scope (Current iOS Implementation)
 
-- Search inside PDF.
 - Bookmarks/table of contents navigation.
 - Drawing/ink annotations, text notes, or shape annotations.
 - Cloud sync or account-based history sync.

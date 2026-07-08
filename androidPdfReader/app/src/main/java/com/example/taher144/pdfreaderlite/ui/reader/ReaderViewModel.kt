@@ -1,10 +1,13 @@
 package com.example.taher144.pdfreaderlite.ui.reader
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import com.example.taher144.pdfreaderlite.app.appContainer
 import com.example.taher144.pdfreaderlite.data.model.ReaderSessionState
 import com.example.taher144.pdfreaderlite.reader.PdfSaveCoordinator
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 class ReaderViewModel(
     application: Application
@@ -13,6 +16,55 @@ class ReaderViewModel(
     private val readingPositionRepository = appContainer.readingPositionRepository
     private val recentFilesRepository = appContainer.recentFilesRepository
     private val saveCoordinator = PdfSaveCoordinator()
+
+    // --- Reading time session tracking ---
+    private var sessionDocumentId: String? = null
+    private var sessionStartElapsed: Long = -1L
+
+    // --- Page counter ---
+    private val _pageInfo = MutableStateFlow(0 to 0)
+    val pageInfo: StateFlow<Pair<Int, Int>> = _pageInfo
+
+    fun updatePageInfo(page: Int, totalPages: Int) {
+        _pageInfo.value = page to totalPages
+    }
+
+    // --- Full-screen mode ---
+    private val _isFullScreen = MutableStateFlow(false)
+    val isFullScreen: StateFlow<Boolean> = _isFullScreen
+
+    fun beginReadingSession(documentId: String) {
+        if (documentId.isBlank()) return
+        sessionDocumentId = documentId
+        sessionStartElapsed = SystemClock.elapsedRealtime()
+    }
+
+    fun commitReadingTimeIfNeeded() {
+        val docId = sessionDocumentId ?: return
+        val start = sessionStartElapsed
+        if (start < 0 || docId.isBlank()) return
+
+        val elapsed = SystemClock.elapsedRealtime() - start
+        val deltaSeconds = elapsed / 1_000L
+        sessionStartElapsed = -1L
+        sessionDocumentId = null
+
+        if (deltaSeconds <= 0) return
+
+        saveCoordinator.enqueueSave {
+            recentFilesRepository.updateReadingTime(docId, deltaSeconds)
+        }
+    }
+
+    fun setFullScreen(enabled: Boolean) { _isFullScreen.value = enabled }
+
+    fun toggleFullScreen() {
+        _isFullScreen.value = !_isFullScreen.value
+    }
+
+    fun resetFullScreen() {
+        _isFullScreen.value = false
+    }
 
     fun persistReadingState(
         documentId: String,

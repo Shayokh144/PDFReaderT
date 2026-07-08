@@ -8,5 +8,6 @@ data class RecentPdfRecord(
     val lastOpenedAt: Long,
     val fileSizeBytes: Long?,
     val lastPage: Int,
-    val totalPages: Int
+    val totalPages: Int,
+    val readingTimeSeconds: Long = 0
 )

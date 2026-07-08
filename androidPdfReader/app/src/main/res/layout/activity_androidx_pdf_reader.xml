@@ -1,41 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
-    <androidx.appcompat.widget.Toolbar
+    <!-- PDF fills the entire screen; toolbar overlays on top to prevent layout jumps on toggle. -->
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/pdf_fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@android:color/black" />
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:background="@android:color/black"
+        android:minHeight="?attr/actionBarSize"
+        android:theme="@style/ThemeOverlay.Material3.Dark.ActionBar"
+        app:navigationIconTint="@android:color/white"
+        android:fitsSystemWindows="true" />
+
+    <TextView
+        android:id="@+id/page_counter"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/page_counter_bg"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="6dp"
+        android:textColor="@android:color/white"
+        android:textSize="13sp"
+        android:visibility="gone" />
 
     <FrameLayout
+        android:id="@+id/reader_resume_loading_overlay"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_height="match_parent"
+        android:background="#E6000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
 
-        <androidx.fragment.app.FragmentContainerView
-            android:id="@+id/pdf_fragment_container"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-
-        <FrameLayout
-            android:id="@+id/reader_resume_loading_overlay"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="#E6000000"
-            android:clickable="true"
-            android:focusable="true"
-            android:visibility="gone">
-
-            <ProgressBar
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:contentDescription="@string/pdf_reader_restoring_position"
-                android:indeterminate="true" />
-        </FrameLayout>
+        <ProgressBar
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:contentDescription="@string/pdf_reader_restoring_position"
+            android:indeterminate="true" />
     </FrameLayout>
 
-</LinearLayout>
+</FrameLayout>

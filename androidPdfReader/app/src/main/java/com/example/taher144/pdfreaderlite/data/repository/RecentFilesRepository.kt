@@ -15,4 +15,9 @@ interface RecentFilesRepository {
         currentPage: Int,
         totalPages: Int
     )
+
+    suspend fun updateReadingTime(
+        documentId: String,
+        deltaSeconds: Long
+    )
 }

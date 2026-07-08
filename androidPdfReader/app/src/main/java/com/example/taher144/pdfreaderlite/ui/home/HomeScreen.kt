@@ -47,6 +47,9 @@ import androidx.compose.ui.unit.dp
 import com.example.taher144.pdfreaderlite.R
 import com.example.taher144.pdfreaderlite.data.model.RecentPdfRecord
 
+private const val SECONDS_PER_MINUTE = 60L
+private const val MINUTES_PER_HOUR = 60L
+
 private val EmptyStateBackground = Color(0xFF000000)
 private val EmptyStateIconTint = Color(0xFF8E8E93)
 private val SelectButtonColor = Color(0xFF32D74B)
@@ -238,6 +241,13 @@ private fun RecentFileCard(
         record.lastPage + 1,
         record.totalPages.coerceAtLeast(1)
     )
+    val readingTime = formattedReadingTime(record.readingTimeSeconds)
+    val separator = stringResource(R.string.pdf_reader_list_separator)
+    val metadataParts = buildList {
+        add(fileSize)
+        add(pageSummary)
+        add(readingTime)
+    }
 
     Column(
         modifier = Modifier
@@ -265,7 +275,7 @@ private fun RecentFileCard(
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "$fileSize ${stringResource(R.string.pdf_reader_list_separator)} $pageSummary",
+            text = metadataParts.joinToString(" $separator "),
             color = EmptyStateIconTint,
             style = MaterialTheme.typography.bodyMedium
         )
@@ -275,6 +285,24 @@ private fun RecentFileCard(
             color = EmptyStateIconTint,
             style = MaterialTheme.typography.bodySmall
         )
+    }
+}
+
+@Composable
+private fun formattedReadingTime(totalSeconds: Long): String {
+    val safeSeconds = totalSeconds.coerceAtLeast(0)
+    val totalMinutes = (safeSeconds + SECONDS_PER_MINUTE / 2) / SECONDS_PER_MINUTE
+    return if (totalMinutes <= MINUTES_PER_HOUR) {
+        stringResource(R.string.pdf_reader_reading_time_minutes, totalMinutes)
+    } else {
+        val hours = safeSeconds.toDouble() / (SECONDS_PER_MINUTE * MINUTES_PER_HOUR)
+        val wholeHours = hours.toLong()
+        if (kotlin.math.abs(hours - wholeHours.toDouble()) < 0.01) {
+            stringResource(R.string.pdf_reader_reading_time_hours_whole, wholeHours)
+        } else {
+            val roundedTenth = kotlin.math.round(hours * 10) / 10
+            stringResource(R.string.pdf_reader_reading_time_hours_decimal, roundedTenth)
+        }
     }
 }
 

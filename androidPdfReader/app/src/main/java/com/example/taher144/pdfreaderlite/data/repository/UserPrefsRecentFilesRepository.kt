@@ -73,6 +73,29 @@ class UserPrefsRecentFilesRepository(
         }
     }
 
+    override suspend fun updateReadingTime(
+        documentId: String,
+        deltaSeconds: Long
+    ) {
+        if (deltaSeconds <= 0) return
+        mutex.withLock {
+            val current = ensureRecordsLoaded()
+            val updatedRecords = current.map { record ->
+                if (record.id != documentId) {
+                    record
+                } else {
+                    record.copy(
+                        readingTimeSeconds = record.readingTimeSeconds + deltaSeconds
+                    )
+                }
+            }
+
+            if (current == updatedRecords) return@withLock
+            cachedRecords = updatedRecords
+            persist(updatedRecords)
+        }
+    }
+
     private suspend fun ensureRecordsLoaded(): List<RecentPdfRecord> {
         return cachedRecords ?: loadRecordsFromDisk().also { cachedRecords = it }
     }
@@ -109,7 +132,8 @@ class UserPrefsRecentFilesRepository(
                         lastOpenedAt = item.optLong("lastOpenedAt"),
                         fileSizeBytes = if (item.has("fileSizeBytes")) item.optLong("fileSizeBytes") else null,
                         lastPage = item.optInt("lastPage"),
-                        totalPages = item.optInt("totalPages")
+                        totalPages = item.optInt("totalPages"),
+                        readingTimeSeconds = item.optLong("readingTimeSeconds", 0)
                     )
                 )
             }
@@ -131,6 +155,7 @@ class UserPrefsRecentFilesRepository(
                     }
                     put("lastPage", record.lastPage)
                     put("totalPages", record.totalPages)
+                    put("readingTimeSeconds", record.readingTimeSeconds)
                 }
             )
         }

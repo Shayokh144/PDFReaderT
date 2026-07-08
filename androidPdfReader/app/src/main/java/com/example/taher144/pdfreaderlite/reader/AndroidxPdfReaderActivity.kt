@@ -8,6 +8,9 @@ import android.os.Bundle
 import android.view.View
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -22,6 +25,8 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
     private val viewModel: ReaderViewModel by viewModels()
 
     private lateinit var readerResumeLoadingOverlay: View
+    private lateinit var toolbar: View
+    private lateinit var pageCounter: android.widget.TextView
 
     private val documentId: String by lazy {
         intent.getStringExtra(EXTRA_DOCUMENT_ID).orEmpty()
@@ -39,6 +44,9 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
         setContentView(R.layout.activity_androidx_pdf_reader)
 
         readerResumeLoadingOverlay = findViewById(R.id.reader_resume_loading_overlay)
@@ -48,11 +56,13 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
             setResumeLoadingVisible(false)
         }
 
-        val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
-        setSupportActionBar(toolbar)
+        toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar as androidx.appcompat.widget.Toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = ""
-        toolbar.setNavigationOnClickListener { finish() }
+        (toolbar as androidx.appcompat.widget.Toolbar).setNavigationOnClickListener { finish() }
+
+        pageCounter = findViewById(R.id.page_counter)
 
         val uri = documentUri
         if (uri == null) {
@@ -70,22 +80,94 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
         }
 
         startPeriodicPagePersistence()
+        observeFullScreenState()
+        observePageCounter()
     }
 
     override fun setResumeLoadingVisible(visible: Boolean) {
         readerResumeLoadingOverlay.visibility = if (visible) View.VISIBLE else View.GONE
     }
 
+    override fun onResume() {
+        super.onResume()
+        viewModel.beginReadingSession(documentId)
+    }
+
     override fun onPause() {
         super.onPause()
+        viewModel.commitReadingTimeIfNeeded()
         persistReadingState(sync = false)
     }
 
     override fun onDestroy() {
+        viewModel.commitReadingTimeIfNeeded()
         persistReadingState(sync = true)
+        viewModel.resetFullScreen()
         viewModel.closeCoordinator()
         super.onDestroy()
     }
+
+    // --- Full-screen mode ---
+
+    private fun observeFullScreenState() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isFullScreen.collect { fullScreen ->
+                    applyFullScreen(fullScreen)
+                }
+            }
+        }
+    }
+
+    private fun applyFullScreen(fullScreen: Boolean) {
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        if (fullScreen) {
+            toolbar.animate()
+                .alpha(0f)
+                .setDuration(FULLSCREEN_ANIM_MS)
+                .withEndAction { toolbar.visibility = View.GONE }
+                .start()
+            pageCounter.animate()
+                .alpha(0f)
+                .setDuration(FULLSCREEN_ANIM_MS)
+                .start()
+            controller.hide(WindowInsetsCompat.Type.statusBars())
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            toolbar.visibility = View.VISIBLE
+            toolbar.animate()
+                .alpha(1f)
+                .setDuration(FULLSCREEN_ANIM_MS)
+                .withEndAction(null)
+                .start()
+            pageCounter.animate()
+                .alpha(1f)
+                .setDuration(FULLSCREEN_ANIM_MS)
+                .start()
+            controller.show(WindowInsetsCompat.Type.statusBars())
+        }
+    }
+
+    // --- Page counter ---
+
+    private fun observePageCounter() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.pageInfo.collect { (page, total) ->
+                    if (total > 0) {
+                        pageCounter.text = getString(R.string.pdf_reader_page_counter, page + 1, total)
+                        if (pageCounter.visibility != View.VISIBLE) {
+                            pageCounter.visibility = View.VISIBLE
+                            pageCounter.alpha = if (viewModel.isFullScreen.value) 0f else 1f
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Reading state persistence ---
 
     private fun persistReadingState(sync: Boolean = false) {
         if (documentId.isBlank()) return
@@ -135,6 +217,7 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
         private const val EXTRA_INITIAL_PAGE = "initial_page"
         private const val TAG_PDF_FRAGMENT = "pdf_viewer"
         private const val PERSIST_INTERVAL_MS = 5_000L
+        private const val FULLSCREEN_ANIM_MS = 200L
 
         fun newIntent(
             context: Context,

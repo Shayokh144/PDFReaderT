@@ -6,12 +6,14 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.SparseArray
 import androidx.core.os.bundleOf
+import androidx.fragment.app.activityViewModels
 import androidx.pdf.ExperimentalPdfApi
 import androidx.pdf.PdfDocument
 import androidx.pdf.view.Highlight
 import androidx.pdf.view.PdfView
 import androidx.pdf.viewer.fragment.PdfViewerFragment
 import com.example.taher144.pdfreaderlite.app.appContainer
+import com.example.taher144.pdfreaderlite.ui.reader.ReaderViewModel
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -20,6 +22,7 @@ import kotlinx.coroutines.withContext
 @kotlin.OptIn(ExperimentalPdfApi::class)
 class ReaderPdfViewerFragment : PdfViewerFragment() {
 
+    private val readerViewModel: ReaderViewModel by activityViewModels()
     private var pdfViewRef: PdfView? = null
     private var pendingInitialPage: Int? = null
     private var resumePositionListener: PdfView.OnViewportChangedListener? = null
@@ -82,15 +85,29 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
             highlightsRepository = requireContext().applicationContext.appContainer.userPdfHighlightsRepository,
             sessionHighlights = userSessionHighlights,
         )
+
+        pdfView.addOnViewportChangedListener(object : PdfView.OnViewportChangedListener {
+            override fun onViewportChanged(
+                firstVisiblePage: Int,
+                visiblePagesCount: Int,
+                pageLocations: SparseArray<RectF>,
+                zoomLevel: Float,
+            ) {
+                val total = pdfView.pdfDocument?.pageCount ?: 0
+                val center = visibleCenterPage(pdfView)
+                readerViewModel.updatePageInfo(center, total)
+            }
+        })
     }
 
     /**
-     * Hide the default annotation toolbox (pen FAB). We apply highlights from the text selection
-     * menu instead of the external annotate intent flow.
+     * Hide the default annotation toolbox (pen FAB) and toggle full-screen mode.
+     * The library calls this on single-tap; we relay it to the activity via the shared ViewModel.
      */
     override fun onRequestImmersiveMode(enterImmersive: Boolean) {
         super.onRequestImmersiveMode(enterImmersive)
         isToolboxVisible = false
+        readerViewModel.setFullScreen(enterImmersive)
     }
 
     override fun onResume() {
@@ -110,6 +127,10 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
         super.onLoadDocumentSuccess(document)
         isToolboxVisible = false
         scheduleRestoreHighlightsFromStore()
+        readerViewModel.updatePageInfo(
+            pdfViewRef?.let { visibleCenterPage(it) } ?: 0,
+            document.pageCount
+        )
         val initialPage = pendingInitialPage ?: arguments?.getInt(ARG_INITIAL_PAGE, 0) ?: 0
         pendingInitialPage = null
         if (initialPage > 0) {

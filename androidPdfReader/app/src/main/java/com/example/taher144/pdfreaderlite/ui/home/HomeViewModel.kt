@@ -68,6 +68,9 @@ class HomeViewModel(
                 val fileSizeBytes = persistedUriHelper.getFileSizeBytes(uri)
                 val lastPage = readingPositionRepository.get(document.documentId)?.currentPage ?: 0
 
+                val existingReadingTime = uiState.value.recentFiles
+                    .find { it.id == document.documentId }?.readingTimeSeconds ?: 0L
+
                 recentFilesRepository.upsert(
                     RecentPdfRecord(
                         id = document.documentId,
@@ -77,7 +80,8 @@ class HomeViewModel(
                         lastOpenedAt = now,
                         fileSizeBytes = fileSizeBytes,
                         lastPage = lastPage,
-                        totalPages = document.pageCount
+                        totalPages = document.pageCount,
+                        readingTimeSeconds = existingReadingTime
                     )
                 )
 

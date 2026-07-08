@@ -20,4 +20,8 @@
     <string name="pdf_reader_highlight_description">Highlight selected text</string>
     <string name="pdf_reader_highlight_read_only_document">Highlights are saved in this app. This file can\'t be edited as a PDF, so marks aren\'t stored inside the file.</string>
     <string name="pdf_reader_highlight_save_failed">Highlights are saved in this app. The PDF file on disk couldn\'t be updated (e.g. read-only).</string>
+    <string name="pdf_reader_page_counter">%1$d / %2$d</string>
+    <string name="pdf_reader_reading_time_minutes">%1$d min</string>
+    <string name="pdf_reader_reading_time_hours_whole">%1$d h</string>
+    <string name="pdf_reader_reading_time_hours_decimal">%1$.1f h</string>
 </resources>
