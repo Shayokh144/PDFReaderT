@@ -60,7 +60,6 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
         setSupportActionBar(toolbar as androidx.appcompat.widget.Toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = ""
-        (toolbar as androidx.appcompat.widget.Toolbar).setNavigationOnClickListener { finish() }
 
         pageCounter = findViewById(R.id.page_counter)
 
@@ -84,6 +83,25 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
         observePageCounter()
     }
 
+    override fun onCreateOptionsMenu(menu: android.view.Menu): Boolean {
+        menuInflater.inflate(R.menu.menu_pdf_reader, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_search -> {
+                viewModel.setIsSearching(true)
+                true
+            }
+            android.R.id.home -> {
+                finish()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
     override fun setResumeLoadingVisible(visible: Boolean) {
         readerResumeLoadingOverlay.visibility = if (visible) View.VISIBLE else View.GONE
     }
@@ -103,6 +121,7 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
         viewModel.commitReadingTimeIfNeeded()
         persistReadingState(sync = true)
         viewModel.resetFullScreen()
+        viewModel.resetSearchState()
         viewModel.closeCoordinator()
         super.onDestroy()
     }
@@ -114,6 +133,20 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.isFullScreen.collect { fullScreen ->
                     applyFullScreen(fullScreen)
+                }
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isSearching.collect { isSearching ->
+                    if (isSearching) {
+                        if (supportFragmentManager.findFragmentByTag("search_bottom_sheet") == null) {
+                            PdfSearchBottomSheetFragment().show(supportFragmentManager, "search_bottom_sheet")
+                        }
+                    } else {
+                        val fragment = supportFragmentManager.findFragmentByTag("search_bottom_sheet") as? com.google.android.material.bottomsheet.BottomSheetDialogFragment
+                        fragment?.dismiss()
+                    }
                 }
             }
         }

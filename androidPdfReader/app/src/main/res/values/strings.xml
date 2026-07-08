@@ -24,4 +24,8 @@
     <string name="pdf_reader_reading_time_minutes">%1$d min</string>
     <string name="pdf_reader_reading_time_hours_whole">%1$d h</string>
     <string name="pdf_reader_reading_time_hours_decimal">%1$.1f h</string>
+    <string name="pdf_reader_search_title">Search</string>
+    <string name="pdf_reader_search_placeholder">Search in PDF</string>
+    <string name="pdf_reader_search_no_results">No results found</string>
+    <string name="pdf_reader_search_result_page">Page %d</string>
 </resources>

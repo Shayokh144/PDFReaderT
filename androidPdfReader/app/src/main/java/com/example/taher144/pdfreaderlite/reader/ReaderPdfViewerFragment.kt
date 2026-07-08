@@ -16,8 +16,13 @@ import com.example.taher144.pdfreaderlite.app.appContainer
 import com.example.taher144.pdfreaderlite.ui.reader.ReaderViewModel
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.example.taher144.pdfreaderlite.ui.reader.PdfSearchResult
+import kotlin.math.max
+import kotlin.math.min
 
 @kotlin.OptIn(ExperimentalPdfApi::class)
 class ReaderPdfViewerFragment : PdfViewerFragment() {
@@ -31,6 +36,10 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
 
     /** In-memory list shared with [ReaderPdfSelectionConfigurator]; persisted via app DataStore. */
     private val userSessionHighlights = mutableListOf<Highlight>()
+
+    private var searchJob: Job? = null
+    private var temporaryHighlightJob: Job? = null
+    private var temporaryHighlight: List<Highlight>? = null
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -98,6 +107,137 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
                 readerViewModel.updatePageInfo(center, total)
             }
         })
+
+        observeSearch()
+    }
+
+    private fun observeSearch() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            readerViewModel.searchText.collect { query ->
+                performSearch(query)
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            readerViewModel.searchNavigation.collect { navRequest ->
+                if (navRequest != null) {
+                    navigateToSearchResult(navRequest.pageIndex, navRequest.matchIndex, navRequest.matchLength)
+                    readerViewModel.clearSearchNavigation()
+                }
+            }
+        }
+    }
+
+    @ExperimentalPdfApi
+    private fun performSearch(query: String) {
+        searchJob?.cancel()
+        if (query.isBlank()) {
+            readerViewModel.setSearchResults(emptyList())
+            return
+        }
+        searchJob = viewLifecycleOwner.lifecycleScope.launch {
+            delay(300) // debounce
+            val doc = pdfViewRef?.pdfDocument ?: return@launch
+            val pageCount = doc.pageCount
+            if (pageCount == 0) return@launch
+
+            val results = mutableListOf<PdfSearchResult>()
+            withContext(Dispatchers.IO) {
+                try {
+                    val matches = doc.searchDocument(query, 0 until pageCount)
+                    for (i in 0 until matches.size()) {
+                        val pageIndex = matches.keyAt(i)
+                        val pageMatches = matches.valueAt(i)
+                        if (pageMatches.isNotEmpty()) {
+                            val pageContent = doc.getPageContent(pageIndex)
+                            val fullText = pageContent?.textContents?.joinToString(separator = "") { it.text } ?: ""
+                            
+                            pageMatches.forEachIndexed { matchIndex, matchBounds ->
+                                val startIndex = matchBounds.textStartIndex
+                                val matchLength = query.length // approximate, actual match might differ slightly
+                                
+                                val safeStartIndex = min(startIndex, fullText.length)
+                                val snippetStart = max(0, safeStartIndex - 30)
+                                val snippetEnd = min(fullText.length, safeStartIndex + matchLength + 30)
+                                
+                                var rawSnippet = fullText.substring(snippetStart, snippetEnd).replace("\n", " ")
+                                var snippetMatchStart = safeStartIndex - snippetStart
+                                
+                                // Trim start manually to adjust snippetMatchStart
+                                val trimmedStart = rawSnippet.trimStart()
+                                val startTrimCount = rawSnippet.length - trimmedStart.length
+                                rawSnippet = trimmedStart.trimEnd()
+                                snippetMatchStart -= startTrimCount
+                                
+                                var snippet = rawSnippet
+                                if (snippetStart > 0) {
+                                    snippet = "…$snippet"
+                                    snippetMatchStart += 1
+                                }
+                                if (snippetEnd < fullText.length) {
+                                    snippet = "$snippet…"
+                                }
+                                
+                                results.add(
+                                    PdfSearchResult(
+                                        pageIndex = pageIndex,
+                                        snippet = snippet,
+                                        matchIndex = matchIndex,
+                                        matchLength = matchLength,
+                                        snippetMatchStartIndex = snippetMatchStart
+                                    )
+                                )
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore search errors
+                }
+            }
+            readerViewModel.setSearchResults(results)
+        }
+    }
+
+    @ExperimentalPdfApi
+    private fun navigateToSearchResult(pageIndex: Int, matchIndex: Int, matchLength: Int) {
+        val view = pdfViewRef ?: return
+        val doc = view.pdfDocument ?: return
+        
+        scheduleScrollToPage(pageIndex)
+        
+        temporaryHighlightJob?.cancel()
+        temporaryHighlightJob = viewLifecycleOwner.lifecycleScope.launch {
+            val query = readerViewModel.searchText.value
+            if (query.isBlank()) return@launch
+            
+            try {
+                val matches = doc.searchDocument(query, pageIndex..pageIndex)
+                val pageMatches = matches.get(pageIndex)
+                if (pageMatches != null && matchIndex < pageMatches.size) {
+                    val matchBounds = pageMatches[matchIndex]
+                    
+                    // Remove previous temporary highlights
+                    temporaryHighlight?.let {
+                        userSessionHighlights.removeAll(it)
+                    }
+                    
+                    // Add new temporary highlights (yellow, 50% opacity)
+                    val newHighlights = matchBounds.bounds.map { rectF ->
+                        Highlight(androidx.pdf.PdfRect(pageIndex, rectF.left, rectF.top, rectF.right, rectF.bottom), android.graphics.Color.argb(128, 255, 255, 0))
+                    }
+                    temporaryHighlight = newHighlights
+                    userSessionHighlights.addAll(newHighlights)
+                    view.setHighlights(userSessionHighlights.toList())
+                    
+                    // Remove after 2 seconds
+                    delay(2000)
+                    userSessionHighlights.removeAll(newHighlights)
+                    temporaryHighlight = null
+                    view.setHighlights(userSessionHighlights.toList())
+                }
+            } catch (e: Exception) {
+                // Ignore errors
+            }
+        }
     }
 
     /**
