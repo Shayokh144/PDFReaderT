@@ -47,6 +47,7 @@ final class PDFReaderViewModel: ObservableObject {
     @Published private(set) var isSavingBeforeClose = false
     @Published var isFullScreen = false
     @Published var isSearching = false
+    @Published var showingStats = false
     @Published var searchText = ""
     @Published private(set) var searchResults: [PDFSearchResult] = []
     @Published var searchNavigation: SearchNavigationRequest?

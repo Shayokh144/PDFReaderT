@@ -52,6 +52,14 @@ struct PDFReaderView: View {
                         }
                         .disabled(uiModel.isSavingBeforeClose)
                     }
+                } else if !uiModel.recentFiles.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            viewModel.showingStats = true
+                        } label: {
+                            Image(systemName: "chart.bar.fill")
+                        }
+                    }
                 }
             }
             .sheet(isPresented: $viewModel.showingDocumentPicker) {
@@ -63,6 +71,9 @@ struct PDFReaderView: View {
             .sheet(isPresented: $viewModel.isSearching) {
                 PDFSearchSheet(viewModel: viewModel)
                     .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $viewModel.showingStats) {
+                ReadingStatsView(recentFiles: viewModel.recentFiles)
             }
             .onAppear {
                 viewModel.onAppear()
@@ -105,14 +116,20 @@ struct PDFReaderView: View {
         Group {
             if isLandscape && !uiModel.recentFiles.isEmpty {
                 HStack(alignment: .top, spacing: 24) {
-                    emptyStateCard()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    VStack(spacing: 16) {
+                        emptyStateCard()
+                        ReadingStatsCard(recentFiles: uiModel.recentFiles)
+                            .onTapGesture { viewModel.showingStats = true }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     recentFilesSection(uiModel: uiModel)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
             } else {
-                VStack(spacing: 24) {
+                VStack(spacing: 16) {
                     emptyStateCard()
+                    ReadingStatsCard(recentFiles: uiModel.recentFiles)
+                        .onTapGesture { viewModel.showingStats = true }
                     if !uiModel.recentFiles.isEmpty {
                         recentFilesSection(uiModel: uiModel)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

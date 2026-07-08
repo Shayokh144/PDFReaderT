@@ -11,6 +11,13 @@ struct RecentFileRow: View {
     let file: RecentFile
     let onTap: () -> Void
 
+    private var progressPercent: Int {
+        guard file.totalPages > 0 else { return 0 }
+        return min(100, Int((Double(file.lastPageNumber + 1) / Double(file.totalPages)) * 100))
+    }
+
+    private var isFinished: Bool { progressPercent >= 95 }
+
     /// Minutes when total reading time is at most 60 minutes; otherwise hours (whole or one decimal).
     private func formattedReadingTime(_ seconds: TimeInterval) -> String {
         let totalMinutes = seconds / 60.0
@@ -52,22 +59,34 @@ struct RecentFileRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack {
-                Image(systemName: "doc.text.fill")
-                    .foregroundColor(.green)
+                Image(systemName: isFinished ? "checkmark.circle.fill" : "doc.text.fill")
+                    .foregroundColor(isFinished ? .blue : .green)
                     .font(.title2)
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(file.name)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
+                    HStack {
+                        Text(file.name)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+
+                        if isFinished {
+                            Text("pdf_reader.finished_badge")
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.blue)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.blue.opacity(0.12))
+                                .cornerRadius(4)
+                        }
+                    }
                     
                     HStack {
                         Text(file.fileSize)
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
-                        // Show page info if available
                         if file.totalPages > 0 {
                             Text("pdf_reader.list_separator")
                                 .font(.caption)
@@ -91,11 +110,40 @@ struct RecentFileRow: View {
                         Text(formattedReadingTime(file.readingTimeSeconds))
                             .font(.caption)
                             .foregroundColor(.secondary)
+
+                        if file.totalPages > 0 {
+                            Text("pdf_reader.list_separator")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            Text(
+                                String(
+                                    format: String(localized: "pdf_reader.progress_percent_format"),
+                                    progressPercent
+                                )
+                            )
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
                         
                         Spacer()
                         Text(formattedDateAdded(file.dateAdded))
                             .font(.caption)
                             .foregroundColor(.secondary)
+                    }
+
+                    if file.totalPages > 0 {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule()
+                                    .fill(Color(.systemGray4))
+                                    .frame(height: 4)
+                                Capsule()
+                                    .fill(isFinished ? Color.blue : Color.green)
+                                    .frame(width: geo.size.width * CGFloat(progressPercent) / 100.0, height: 4)
+                            }
+                        }
+                        .frame(height: 4)
                     }
                 }
                 
