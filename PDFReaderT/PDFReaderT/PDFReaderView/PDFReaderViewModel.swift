@@ -52,21 +52,42 @@ final class PDFReaderViewModel: ObservableObject {
     @Published private(set) var searchResults: [PDFSearchResult] = []
     @Published var searchNavigation: SearchNavigationRequest?
     
+    @Published var showingInsights = false
+    @Published private(set) var dailyStats: [DailyReadingStats] = []
+    @Published private(set) var recentSessions: [ReadingSession] = []
+
     var saveFlusher: SaveFlusher?
     
     private var pageSaveTimer: Timer?
     private var searchDebounceTask: Task<Void, Never>?
     private let recentFilesStore: RecentFilesStoring
+    private let insightsStorage = ReadingInsightsStorage()
+    private let sessionTracker: ReadingSessionTracker
+    private var pageChangeCancellable: AnyCancellable?
 
     private var readingSessionStart: Date?
     private var readingSessionFileId: UUID?
     
     init(recentFilesStore: RecentFilesStoring = UserDefaultsRecentFilesStore()) {
         self.recentFilesStore = recentFilesStore
+        let storage = insightsStorage
+        self.sessionTracker = ReadingSessionTracker(storage: storage)
+
+        sessionTracker.onSessionRecorded = { [weak self] in
+            self?.reloadInsightsData()
+        }
+
+        pageChangeCancellable = $currentPage
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] page in
+                self?.sessionTracker.onUserInteraction(currentPage: page)
+            }
     }
     
     func onAppear() {
         loadRecentFiles()
+        reloadInsightsData()
     }
     
     /// Shows an informational alert with **OK** only. Use for errors that need no follow-up action.
@@ -181,6 +202,9 @@ final class PDFReaderViewModel: ObservableObject {
     }
     
     func onSelectedPDFURLChanged(_ newURL: URL?) {
+        if sessionTracker.hasActiveSession {
+            sessionTracker.endSession(currentPage: currentPage)
+        }
         commitReadingTimeIfNeeded()
         if let url = newURL {
             currentPage = 0
@@ -201,6 +225,13 @@ final class PDFReaderViewModel: ObservableObject {
         guard let fid = currentFileId, readingSessionStart == nil else { return }
         readingSessionStart = Date()
         readingSessionFileId = fid
+
+        if !sessionTracker.hasActiveSession,
+           let file = recentFiles.first(where: { $0.id == fid }) {
+            sessionTracker.startSession(documentId: fid, documentName: file.name, page: currentPage)
+        } else {
+            sessionTracker.resumeFromForeground()
+        }
     }
 
     /// Pauses tracking (e.g. leaving the reader or app background) and persists elapsed time for the session file.
@@ -224,6 +255,8 @@ final class PDFReaderViewModel: ObservableObject {
         recentFiles[index] = updatedFile
         saveRecentFilesToUserDefaults()
         log.debug("\(AppLog.scopePrefix(for: Self.self)) saved reading time +\(delta, privacy: .public)s for file \(updatedFile.name)")
+
+        sessionTracker.pauseForBackground(currentPage: currentPage)
     }
     
     func deleteFile(at offsets: IndexSet) {
@@ -276,6 +309,7 @@ final class PDFReaderViewModel: ObservableObject {
     func closePDFReader() {
         guard !isSavingBeforeClose else { return }
 
+        sessionTracker.endSession(currentPage: currentPage)
         commitReadingTimeIfNeeded()
         saveCurrentPage()
         
@@ -390,6 +424,11 @@ final class PDFReaderViewModel: ObservableObject {
     
     private func saveRecentFilesToUserDefaults() {
         recentFilesStore.saveRecentFiles(recentFiles)
+    }
+
+    private func reloadInsightsData() {
+        dailyStats = insightsStorage.loadDailyStats()
+        recentSessions = insightsStorage.loadSessions()
     }
     
     var uiModel: PDFReaderViewUIModel {

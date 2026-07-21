@@ -54,10 +54,19 @@ struct PDFReaderView: View {
                     }
                 } else if !uiModel.recentFiles.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            viewModel.showingStats = true
-                        } label: {
-                            Image(systemName: "chart.bar.fill")
+                        HStack(spacing: 16) {
+                            Button {
+                                viewModel.showingStats = true
+                            } label: {
+                                Image(systemName: "chart.bar.fill")
+                            }
+                            if !viewModel.dailyStats.isEmpty {
+                                Button {
+                                    viewModel.showingInsights = true
+                                } label: {
+                                    Image(systemName: "flame.fill")
+                                }
+                            }
                         }
                     }
                 }
@@ -74,6 +83,12 @@ struct PDFReaderView: View {
             }
             .sheet(isPresented: $viewModel.showingStats) {
                 ReadingStatsView(recentFiles: viewModel.recentFiles)
+            }
+            .sheet(isPresented: $viewModel.showingInsights) {
+                ReadingInsightsView(
+                    dailyStats: viewModel.dailyStats,
+                    sessions: viewModel.recentSessions
+                )
             }
             .onAppear {
                 viewModel.onAppear()
@@ -120,6 +135,8 @@ struct PDFReaderView: View {
                         emptyStateCard()
                         ReadingStatsCard(recentFiles: uiModel.recentFiles)
                             .onTapGesture { viewModel.showingStats = true }
+                        InsightsCard(dailyStats: viewModel.dailyStats, sessions: viewModel.recentSessions)
+                            .onTapGesture { viewModel.showingInsights = true }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     recentFilesSection(uiModel: uiModel)
@@ -130,6 +147,8 @@ struct PDFReaderView: View {
                     emptyStateCard()
                     ReadingStatsCard(recentFiles: uiModel.recentFiles)
                         .onTapGesture { viewModel.showingStats = true }
+                    InsightsCard(dailyStats: viewModel.dailyStats, sessions: viewModel.recentSessions)
+                        .onTapGesture { viewModel.showingInsights = true }
                     if !uiModel.recentFiles.isEmpty {
                         recentFilesSection(uiModel: uiModel)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
