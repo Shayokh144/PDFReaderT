@@ -10,6 +10,16 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- Blocks user scroll/zoom while Read Aloud is Playing; sits under toolbar so menus stay usable. -->
+    <View
+        android:id="@+id/read_aloud_scroll_lock_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone" />
+
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
@@ -18,7 +28,8 @@
         android:background="@android:color/black"
         android:minHeight="?attr/actionBarSize"
         android:theme="@style/ThemeOverlay.Material3.Dark.ActionBar"
-        app:navigationIconTint="@android:color/white" />
+        app:navigationIconTint="@android:color/white"
+        app:popupTheme="@style/ThemeOverlay.Material3.Light" />
 
     <TextView
         android:id="@+id/page_counter"

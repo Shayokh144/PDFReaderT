@@ -110,6 +110,11 @@ final class PDFReaderViewModel: ObservableObject {
     func toggleFullScreen() {
         isFullScreen.toggle()
     }
+
+    /// Called by PDFViewer on any touch/scroll/pinch interaction.
+    func onReaderInteraction() {
+        sessionTracker.onUserInteraction(currentPage: currentPage)
+    }
     
     // MARK: - Search
     

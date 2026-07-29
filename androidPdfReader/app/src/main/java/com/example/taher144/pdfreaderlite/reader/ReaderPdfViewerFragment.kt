@@ -306,6 +306,11 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
         }
     }
 
+    /** Scrolls the viewer to [page] (0-based). Used by Read Aloud auto-follow. */
+    fun scrollToPage(page: Int) {
+        scheduleScrollToPage(page)
+    }
+
     private fun scheduleScrollToPage(page: Int, onScrollGaveUp: (() -> Unit)? = null) {
         val view = pdfViewRef ?: return
         fun attempt(tryIndex: Int) {

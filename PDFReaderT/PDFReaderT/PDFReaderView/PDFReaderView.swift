@@ -231,6 +231,9 @@ struct PDFReaderView: View {
                 },
                 onSingleTap: {
                     viewModel.toggleFullScreen()
+                },
+                onUserInteraction: {
+                    viewModel.onReaderInteraction()
                 }
             )
             .overlay(alignment: .bottomTrailing) {

@@ -28,4 +28,26 @@
     <string name="pdf_reader_search_placeholder">Search in PDF</string>
     <string name="pdf_reader_search_no_results">No results found</string>
     <string name="pdf_reader_search_result_page">Page %d</string>
+    <string name="pdf_reader_read_aloud">Read Aloud</string>
+    <string name="pdf_reader_read_aloud_pause">Pause</string>
+    <string name="pdf_reader_read_aloud_resume">Resume</string>
+    <string name="pdf_reader_read_aloud_stop">Stop</string>
+    <string name="pdf_reader_read_aloud_preparing">Preparing…</string>
+    <string name="pdf_reader_read_aloud_progress">Reading page %1$d of %2$d</string>
+    <string name="pdf_reader_read_aloud_no_text">This PDF has no readable text</string>
+    <string name="pdf_reader_read_aloud_tts_unavailable">Text-to-speech isn\'t available on this device. Install a TTS engine in Settings.</string>
+    <string name="pdf_reader_read_aloud_language_unsupported">English text-to-speech voice data is missing. Install a voice pack in Settings.</string>
+    <string name="pdf_reader_read_aloud_open_failed">Couldn\'t open this PDF for reading aloud.</string>
+    <string name="pdf_reader_read_aloud_switch_document">Stop reading the current PDF and start this one?</string>
+    <string name="pdf_reader_read_aloud_channel_name">Read Aloud</string>
+    <string name="pdf_reader_read_aloud_channel_description">Controls for reading PDFs aloud in the background</string>
+    <string name="pdf_reader_read_aloud_notification_permission">Notifications are needed for Read Aloud controls while the app is in the background.</string>
+    <string name="pdf_reader_read_aloud_start_title">Start reading from</string>
+    <string name="pdf_reader_read_aloud_start_current_page">This page (page %1$d)</string>
+    <string name="pdf_reader_read_aloud_start_beginning">Beginning</string>
+    <string name="pdf_reader_read_aloud_start_saved">Resume where I left off (page %1$d)</string>
+    <string name="pdf_reader_read_aloud_cancel">Cancel</string>
+    <string name="pdf_reader_read_aloud_speed">Reading speed</string>
+    <string name="pdf_reader_read_aloud_speed_option">%1$.2f×</string>
+    <string name="pdf_reader_read_aloud_speed_option_default">%1$.2f× (default)</string>
 </resources>

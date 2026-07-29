@@ -44,6 +44,7 @@ struct PDFViewer: UIViewRepresentable {
     let onSaveFailed: () -> Void
     let onSaveFlusherReady: (SaveFlusher) -> Void
     let onSingleTap: () -> Void
+    let onUserInteraction: () -> Void
     
     init(
         url: URL,
@@ -53,7 +54,8 @@ struct PDFViewer: UIViewRepresentable {
         onReadOnlyPDF: @escaping () -> Void = {},
         onSaveFailed: @escaping () -> Void = {},
         onSaveFlusherReady: @escaping (SaveFlusher) -> Void = { _ in },
-        onSingleTap: @escaping () -> Void = {}
+        onSingleTap: @escaping () -> Void = {},
+        onUserInteraction: @escaping () -> Void = {}
     ) {
         self.url = url
         self.initialPage = initialPage
@@ -63,6 +65,7 @@ struct PDFViewer: UIViewRepresentable {
         self.onSaveFailed = onSaveFailed
         self.onSaveFlusherReady = onSaveFlusherReady
         self.onSingleTap = onSingleTap
+        self.onUserInteraction = onUserInteraction
     }
     
     func makeCoordinator() -> Coordinator {
@@ -198,6 +201,10 @@ extension PDFViewer {
             }
             highlightablePDFView.onSingleTap = { [weak self] in
                 self?.parent.onSingleTap()
+                self?.parent.onUserInteraction()
+            }
+            highlightablePDFView.onTouchActivity = { [weak self] in
+                self?.parent.onUserInteraction()
             }
             
             if !didRegisterFlusher {
@@ -446,16 +453,28 @@ private final class PDFSaveCoordinator {
 
 // MARK: - HighlightablePDFView
 
+/// Allows simultaneous recognition so the touch-detection gesture doesn't block scrolling/zooming.
+private final class SimultaneousGestureDelegate: NSObject, UIGestureRecognizerDelegate {
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool { true }
+}
+
 private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate {
     var onHighlightSelection: ((PDFSelection) -> Void)?
     var highlightMenuTitle: String = "Highlight"
     var latestSelection: PDFSelection?
     var onLayoutChanged: ((HighlightablePDFView) -> Void)?
     var onSingleTap: (() -> Void)?
+    var onTouchActivity: (() -> Void)?
     
     private lazy var editInteraction = UIEditMenuInteraction(delegate: self)
     private var didAddInteraction = false
     private var didAddTapGesture = false
+    private var didAddTouchGesture = false
+    private let touchGestureDelegate = SimultaneousGestureDelegate()
+    private var lastTouchCallbackTime: Date = .distantPast
     private var menuWorkItem: DispatchWorkItem?
     private var retryWorkItem: DispatchWorkItem?
     private var isOurMenuVisible = false
@@ -502,6 +521,14 @@ private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate
             addGestureRecognizer(tap)
             didAddTapGesture = true
         }
+        if window != nil && !didAddTouchGesture {
+            let touch = UILongPressGestureRecognizer(target: self, action: #selector(handleTouchInteraction(_:)))
+            touch.minimumPressDuration = 0
+            touch.cancelsTouchesInView = false
+            touch.delegate = touchGestureDelegate
+            addGestureRecognizer(touch)
+            didAddTouchGesture = true
+        }
         if window != nil {
             disableScrollToTopBehavior()
             stripCompetingEditMenuInteractions()
@@ -510,6 +537,14 @@ private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate
     
     @objc private func handleSingleTap(_ gesture: UITapGestureRecognizer) {
         onSingleTap?()
+    }
+
+    @objc private func handleTouchInteraction(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began || gesture.state == .changed else { return }
+        let now = Date()
+        guard now.timeIntervalSince(lastTouchCallbackTime) >= 5 else { return }
+        lastTouchCallbackTime = now
+        onTouchActivity?()
     }
     
     // MARK: UIGestureRecognizerDelegate (inherited from PDFView)

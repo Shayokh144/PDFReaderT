@@ -22,6 +22,10 @@ final class ReadingSessionTracker {
     private var startPage: Int = 0
     private var latestPage: Int = 0
     private var sessionStartTime: Date?
+    /// False until the first real user interaction. The initial async page navigation
+    /// (restoring last-read position) fires a page change that should set startPage
+    /// rather than count as "pages read".
+    private var startPageLocked = false
 
     // Idle detection: track active segments so idle gaps are excluded
     private var activeSegmentStart: Date?
@@ -54,6 +58,7 @@ final class ReadingSessionTracker {
         activeSegmentStart = now
         accumulatedActiveSeconds = 0
         isIdle = false
+        startPageLocked = false
         startIdleTimer()
         log.debug("\(AppLog.scopePrefix(for: Self.self)) session started for \(documentName) at page \(page)")
     }
@@ -111,10 +116,17 @@ final class ReadingSessionTracker {
         log.debug("\(AppLog.scopePrefix(for: Self.self)) session resumed from foreground")
     }
 
-    /// Call on any user interaction (page change, tap). Resets the idle timer
+    /// Call on any user interaction (page change, tap, scroll). Resets the idle timer
     /// and resumes tracking if the session was idle.
     func onUserInteraction(currentPage: Int) {
         guard sessionId != nil else { return }
+
+        if !startPageLocked {
+            startPage = currentPage
+            startPageLocked = true
+            log.debug("\(AppLog.scopePrefix(for: Self.self)) locked startPage to \(currentPage)")
+        }
+
         latestPage = currentPage
 
         if isIdle {
@@ -175,5 +187,6 @@ final class ReadingSessionTracker {
         activeSegmentStart = nil
         accumulatedActiveSeconds = 0
         isIdle = false
+        startPageLocked = false
     }
 }

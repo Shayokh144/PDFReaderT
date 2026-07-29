@@ -13,6 +13,7 @@ composeBom = "2024.09.00"
 androidxPdfViewer = "1.0.0-alpha16"
 fragmentCompose = "1.8.6"
 material = "1.13.0"
+media = "1.7.0"
 
 [libraries]
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
@@ -36,6 +37,7 @@ androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-te
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-pdf-viewer-fragment = { group = "androidx.pdf", name = "pdf-viewer-fragment", version.ref = "androidxPdfViewer" }
 androidx-fragment-compose = { group = "androidx.fragment", name = "fragment-compose", version.ref = "fragmentCompose" }
+androidx-media = { group = "androidx.media", name = "media", version.ref = "media" }
 google-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 
 [plugins]

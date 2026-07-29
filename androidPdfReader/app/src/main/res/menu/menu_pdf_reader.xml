@@ -2,6 +2,23 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/action_read_aloud"
+        android:icon="@android:drawable/ic_btn_speak_now"
+        android:title="@string/pdf_reader_read_aloud"
+        app:iconTint="@android:color/white"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_stop_read_aloud"
+        android:icon="@android:drawable/ic_menu_close_clear_cancel"
+        android:title="@string/pdf_reader_read_aloud_stop"
+        android:visible="false"
+        app:iconTint="@android:color/white"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_read_aloud_speed"
+        android:title="@string/pdf_reader_read_aloud_speed"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_search"
         android:icon="@android:drawable/ic_menu_search"
         android:title="@string/pdf_reader_search_title"
