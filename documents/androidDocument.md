@@ -1,6 +1,12 @@
-# Highlight feature on Android (`androidPdfReader`)
+# Android reader features (`androidPdfReader`)
 
-This document describes how the highlight flow works in the Android module `androidPdfReader`, based on `ReaderPdfSelectionConfigurator.kt`, `PdfHighlightPersistence.kt`, `UserPdfHighlightsRepository.kt`, and `ReaderPdfViewerFragment.kt`.
+This document describes implemented reader features in the Android module `androidPdfReader`. It started as the highlight deep-dive and now also covers **bookmarks** (and briefly points at other shipped work).
+
+---
+
+# Highlights
+
+Based on `ReaderPdfSelectionConfigurator.kt`, `PdfHighlightPersistence.kt`, `UserPdfHighlightsRepository.kt`, and `ReaderPdfViewerFragment.kt`.
 
 ## Overview
 
@@ -76,10 +82,10 @@ The module also has **`PdfSaveCoordinator`** used by **`ReaderViewModel`** for *
 
 ## Caveats and interactions
 
-- **In-document search:** **`PdfViewerFragment`** subscribes to search highlight state and may call **`setHighlights`** for matches, which can **replace** the overlay list managed for user highlights. Using search may clear or conflict with session highlights until merging is implemented.
+- **In-document search:** **`PdfViewerFragment`** / search UI may call **`setHighlights`** for temporary match marks, which can **replace** the overlay list managed for user highlights until merging is implemented.
 - **PDF write success** does not remove DataStore entries; **display on reopen** is driven from **DataStore** for consistency when file embedding is unavailable or invisible in the viewer.
 
-## Flow diagram
+## Highlight flow diagram
 
 ```mermaid
 flowchart TD
@@ -97,3 +103,70 @@ flowchart TD
     M[Document loads later] --> N[IO: getHighlights from DataStore]
     N --> O[setHighlights restored list]
 ```
+
+---
+
+# Bookmarks (implemented)
+
+Task: [15-pdf-bookmark.md](../androidPdfReader/task/15-pdf-bookmark.md)
+
+Key types/files: `PdfBookmark`, `UserPdfBookmarkRepository` / `UserPrefsUserPdfBookmarkRepository`, `ReaderPdfViewerFragment` (flag overlay + gestures), `AndroidxPdfReaderActivity` (**Go to bookmark** menu), drawable `ic_bookmark_flag.xml`.
+
+## Behavior
+
+| Action | Result |
+|--------|--------|
+| **Double-tap** on page | Places/replaces the **only** bookmark for this PDF at **page + (x, y)** (PDF coords). Does **not** zoom. |
+| **Long-press** yellow flag | Removes bookmark immediately. |
+| Overflow **Go to bookmark** | `scrollToPosition` / `scrollToPage`; toast if none. |
+| **Single tap** | Still toggles full-screen (toolbar on/off). |
+
+Flag: **16×16** yellow vector overlay (`ImageView`), repositioned on viewport changes via **`pdfToViewPoint`**. Not stored as a PDF annotation and not using **`setHighlights`**.
+
+## Persistence
+
+- DataStore blob key: **`user_pdf_bookmarks_by_document_v1`**.
+- Shape: map **`documentId` → `{ "page", "x", "y" }`** (overwrite on place; delete on clear).
+- Same **`documentId`** as highlights / reading position (`uri.toString()` today).
+- Restored on **`onLoadDocumentSuccess`** / **`onResume`** (IO coroutine; no main-thread **`runBlocking`**).
+
+## Gesture wiring note
+
+`PdfView.setOnTouchListener` **replaces** `PdfViewerFragment`’s listener that calls immersive mode on **`onSingleTapConfirmed`**. The app’s listener therefore handles both:
+
+1. **`onSingleTapConfirmed`** → `ReaderViewModel.toggleFullScreen()`
+2. **`onDoubleTap`** → place bookmark and temporarily consume the second-tap stream so PdfView does not zoom
+
+Pinch, scroll, and text selection still reach PdfView when not suppressing a double-tap.
+
+## Bookmark flow diagram
+
+```mermaid
+flowchart TD
+    A[Double-tap on PdfView] --> B[viewToPdfPoint]
+    B --> C[Overwrite PdfBookmark in memory]
+    C --> D[Show/move yellow flag ImageView]
+    D --> E[IO: setBookmark DataStore]
+    F[Long-press flag] --> G[Hide flag + clearBookmark]
+    H[Go to bookmark menu] --> I{Bookmark exists?}
+    I -->|No| J[Toast]
+    I -->|Yes| K[scrollToPosition / scrollToPage]
+    L[Document loads] --> M[IO: getBookmark]
+    M --> N[Show flag if present]
+```
+
+---
+
+# Other implemented reader features (pointers)
+
+These are covered by tasks under `androidPdfReader/task/` and are already in the codebase:
+
+| Feature | Task | Primary hooks |
+|---------|------|----------------|
+| Open PDF / recents / resume page | 01–03, 08 | `AndroidxPdfEngine`, `RecentFilesRepository`, reading position |
+| Highlights | 05–07 | See above |
+| Full-screen single-tap | 12 | `ReaderViewModel.isFullScreen`, `onRequestImmersiveMode` / custom touch |
+| Text search | 13 | Search bottom sheet, `searchDocument` / `getPageContent` |
+| Reading time | 11 | `readingTimeSeconds` on recents |
+| Read aloud (TTS, FGS, speed) | 14 | `readaloud/ReadAloudService`, start/speed dialogs |
+| Bookmark flag | **15** | See **Bookmarks** section above |

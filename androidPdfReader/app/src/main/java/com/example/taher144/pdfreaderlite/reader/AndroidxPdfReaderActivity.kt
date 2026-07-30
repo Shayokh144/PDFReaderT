@@ -173,6 +173,12 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
                 showReadAloudSpeedChooser()
                 true
             }
+            R.id.action_go_to_bookmark -> {
+                val fragment = supportFragmentManager
+                    .findFragmentByTag(TAG_PDF_FRAGMENT) as? ReaderPdfViewerFragment
+                fragment?.goToBookmark()
+                true
+            }
             android.R.id.home -> {
                 finish()
                 true
@@ -466,6 +472,8 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
     private fun applyFullScreen(fullScreen: Boolean) {
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         if (fullScreen) {
+            toolbar.animate().cancel()
+            pageCounter.animate().cancel()
             toolbar.animate()
                 .alpha(0f)
                 .setDuration(FULLSCREEN_ANIM_MS)
@@ -479,16 +487,20 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
             controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
+            toolbar.animate().cancel()
+            pageCounter.animate().cancel()
             toolbar.visibility = View.VISIBLE
             toolbar.animate()
                 .alpha(1f)
                 .setDuration(FULLSCREEN_ANIM_MS)
                 .withEndAction(null)
                 .start()
-            pageCounter.animate()
-                .alpha(1f)
-                .setDuration(FULLSCREEN_ANIM_MS)
-                .start()
+            if (pageCounter.visibility == View.VISIBLE) {
+                pageCounter.animate()
+                    .alpha(1f)
+                    .setDuration(FULLSCREEN_ANIM_MS)
+                    .start()
+            }
             controller.show(WindowInsetsCompat.Type.statusBars())
         }
     }

@@ -50,4 +50,7 @@
     <string name="pdf_reader_read_aloud_speed">Reading speed</string>
     <string name="pdf_reader_read_aloud_speed_option">%1$.2f×</string>
     <string name="pdf_reader_read_aloud_speed_option_default">%1$.2f× (default)</string>
+    <string name="pdf_reader_go_to_bookmark">Go to bookmark</string>
+    <string name="pdf_reader_bookmark_missing">No bookmark yet. Double-tap the page to add one.</string>
+    <string name="pdf_reader_bookmark_flag">Bookmark</string>
 </resources>

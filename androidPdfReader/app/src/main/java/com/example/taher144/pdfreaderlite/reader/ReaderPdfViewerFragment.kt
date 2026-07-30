@@ -1,26 +1,36 @@
 package com.example.taher144.pdfreaderlite.reader
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.RectF
 import android.net.Uri
 import android.os.Bundle
 import android.util.SparseArray
+import android.view.GestureDetector
+import android.view.MotionEvent
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.Toast
 import androidx.core.os.bundleOf
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.pdf.ExperimentalPdfApi
 import androidx.pdf.PdfDocument
+import androidx.pdf.PdfPoint
 import androidx.pdf.view.Highlight
 import androidx.pdf.view.PdfView
 import androidx.pdf.viewer.fragment.PdfViewerFragment
+import com.example.taher144.pdfreaderlite.R
 import com.example.taher144.pdfreaderlite.app.appContainer
+import com.example.taher144.pdfreaderlite.data.model.PdfBookmark
+import com.example.taher144.pdfreaderlite.ui.reader.PdfSearchResult
 import com.example.taher144.pdfreaderlite.ui.reader.ReaderViewModel
-import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.example.taher144.pdfreaderlite.ui.reader.PdfSearchResult
 import kotlin.math.max
 import kotlin.math.min
 
@@ -40,6 +50,11 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
     private var searchJob: Job? = null
     private var temporaryHighlightJob: Job? = null
     private var temporaryHighlight: List<Highlight>? = null
+
+    private var bookmarkFlagView: ImageView? = null
+    private var currentBookmark: PdfBookmark? = null
+    private var suppressPdfGesturesUntilUp: Boolean = false
+    private var bookmarkDoubleTapDetector: GestureDetector? = null
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -95,6 +110,9 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
             sessionHighlights = userSessionHighlights,
         )
 
+        setupBookmarkFlagOverlay(pdfView)
+        attachBookmarkDoubleTapGesture(pdfView)
+
         pdfView.addOnViewportChangedListener(object : PdfView.OnViewportChangedListener {
             override fun onViewportChanged(
                 firstVisiblePage: Int,
@@ -105,10 +123,160 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
                 val total = pdfView.pdfDocument?.pageCount ?: 0
                 val center = visibleCenterPage(pdfView)
                 readerViewModel.updatePageInfo(center, total)
+                updateBookmarkFlagPosition()
             }
         })
 
         observeSearch()
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun attachBookmarkDoubleTapGesture(pdfView: PdfView) {
+        // Replaces PdfViewerFragment's OnTouchListener (which toggled immersive mode on single-tap),
+        // so we must handle single-tap fullscreen here as well as double-tap bookmarks.
+        val detector = GestureDetector(
+            requireContext(),
+            object : GestureDetector.SimpleOnGestureListener() {
+                override fun onDown(e: MotionEvent): Boolean = true
+
+                override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                    readerViewModel.toggleFullScreen()
+                    return false
+                }
+
+                override fun onDoubleTap(e: MotionEvent): Boolean {
+                    placeBookmarkAtViewPoint(pdfView, e.x, e.y)
+                    suppressPdfGesturesUntilUp = true
+                    return true
+                }
+            }
+        )
+        bookmarkDoubleTapDetector = detector
+        pdfView.setOnTouchListener { _, event ->
+            detector.onTouchEvent(event)
+            if (suppressPdfGesturesUntilUp) {
+                val action = event.actionMasked
+                if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                    suppressPdfGesturesUntilUp = false
+                }
+                // Consume the second-tap stream so PdfView does not zoom on double-tap.
+                true
+            } else {
+                // Let PdfView receive the event for scroll / pinch / selection.
+                false
+            }
+        }
+    }
+
+    private fun setupBookmarkFlagOverlay(pdfView: PdfView) {
+        val parent = pdfView.parent as? ViewGroup ?: return
+        val sizePx = (BOOKMARK_FLAG_DP * resources.displayMetrics.density).toInt()
+        val flag = ImageView(requireContext()).apply {
+            layoutParams = FrameLayout.LayoutParams(sizePx, sizePx)
+            setImageResource(R.drawable.ic_bookmark_flag)
+            contentDescription = getString(R.string.pdf_reader_bookmark_flag)
+            visibility = android.view.View.GONE
+            isClickable = true
+            isLongClickable = true
+            setOnLongClickListener {
+                removeBookmark()
+                true
+            }
+        }
+        bookmarkFlagView = flag
+        parent.addView(flag)
+    }
+
+    private fun placeBookmarkAtViewPoint(pdfView: PdfView, viewX: Float, viewY: Float) {
+        val documentId = arguments?.getString(ARG_DOCUMENT_ID).orEmpty()
+        if (documentId.isBlank()) return
+        val pdfPoint = pdfView.viewToPdfPoint(viewX, viewY) ?: return
+        val bookmark = PdfBookmark(
+            documentId = documentId,
+            pageIndex = pdfPoint.pageNum,
+            x = pdfPoint.x,
+            y = pdfPoint.y,
+        )
+        currentBookmark = bookmark
+        updateBookmarkFlagPosition()
+        viewLifecycleOwner.lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                requireContext().applicationContext.appContainer.userPdfBookmarkRepository
+                    .setBookmark(bookmark)
+            }
+        }
+    }
+
+    private fun removeBookmark() {
+        val documentId = arguments?.getString(ARG_DOCUMENT_ID).orEmpty()
+        currentBookmark = null
+        bookmarkFlagView?.visibility = android.view.View.GONE
+        if (documentId.isBlank()) return
+        viewLifecycleOwner.lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                requireContext().applicationContext.appContainer.userPdfBookmarkRepository
+                    .clearBookmark(documentId)
+            }
+        }
+    }
+
+    private fun updateBookmarkFlagPosition() {
+        val pdfView = pdfViewRef ?: return
+        val flag = bookmarkFlagView ?: return
+        val bookmark = currentBookmark
+        if (bookmark == null) {
+            flag.visibility = android.view.View.GONE
+            return
+        }
+        val viewPoint = pdfView.pdfToViewPoint(
+            PdfPoint(bookmark.pageIndex, bookmark.x, bookmark.y)
+        )
+        if (viewPoint == null) {
+            flag.visibility = android.view.View.GONE
+            return
+        }
+        // Position so the flag tip sits near the tap point (pole at left, tip near top-left).
+        flag.x = pdfView.left + viewPoint.x - (flag.width * 0.15f)
+        flag.y = pdfView.top + viewPoint.y - (flag.height * 0.1f)
+        flag.visibility = android.view.View.VISIBLE
+        flag.bringToFront()
+    }
+
+    private fun scheduleRestoreBookmarkFromStore() {
+        val documentId = arguments?.getString(ARG_DOCUMENT_ID).orEmpty()
+        if (documentId.isBlank()) return
+        viewLifecycleOwner.lifecycleScope.launch {
+            val loaded = runCatching {
+                withContext(Dispatchers.IO) {
+                    requireContext().applicationContext.appContainer.userPdfBookmarkRepository
+                        .getBookmark(documentId)
+                }
+            }.getOrNull()
+            if (!isAdded) return@launch
+            currentBookmark = loaded
+            updateBookmarkFlagPosition()
+        }
+    }
+
+    /** Scrolls to the saved bookmark page/position, or shows a toast if none exists. */
+    fun goToBookmark(): Boolean {
+        val bookmark = currentBookmark
+        if (bookmark == null) {
+            Toast.makeText(requireContext(), R.string.pdf_reader_bookmark_missing, Toast.LENGTH_SHORT).show()
+            return false
+        }
+        val view = pdfViewRef
+        if (view != null) {
+            val point = PdfPoint(bookmark.pageIndex, bookmark.x, bookmark.y)
+            if (runCatching { view.scrollToPosition(point) }.isSuccess) {
+                view.post { updateBookmarkFlagPosition() }
+                return true
+            }
+        }
+        scheduleScrollToPage(bookmark.pageIndex) {
+            updateBookmarkFlagPosition()
+        }
+        return true
     }
 
     private fun observeSearch() {
@@ -255,7 +423,10 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
         // PdfView clears highlight overlays when the surface pauses; reload from store when doc still loaded.
         val view = pdfViewRef ?: return
         fun restoreIfReady() {
-            if (pdfViewRef?.pdfDocument != null) scheduleRestoreHighlightsFromStore()
+            if (pdfViewRef?.pdfDocument != null) {
+                scheduleRestoreHighlightsFromStore()
+                scheduleRestoreBookmarkFromStore()
+            }
         }
         restoreIfReady()
         if (view.pdfDocument == null) {
@@ -267,6 +438,7 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
         super.onLoadDocumentSuccess(document)
         isToolboxVisible = false
         scheduleRestoreHighlightsFromStore()
+        scheduleRestoreBookmarkFromStore()
         readerViewModel.updatePageInfo(
             pdfViewRef?.let { visibleCenterPage(it) } ?: 0,
             document.pageCount
@@ -365,6 +537,12 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
 
     override fun onDestroyView() {
         pdfViewRef?.let { clearResumePositionOverlay(it) }
+        pdfViewRef?.setOnTouchListener(null)
+        bookmarkFlagView?.let { flag ->
+            (flag.parent as? ViewGroup)?.removeView(flag)
+        }
+        bookmarkFlagView = null
+        bookmarkDoubleTapDetector = null
         pdfViewRef = null
         super.onDestroyView()
     }
@@ -373,6 +551,7 @@ class ReaderPdfViewerFragment : PdfViewerFragment() {
         private const val MAX_SCROLL_TO_PAGE_ATTEMPTS = 25
         private const val SCROLL_TO_PAGE_RETRY_DELAY_MS = 32L
         private const val RESUME_LOADING_TIMEOUT_MS = 15_000L
+        private const val BOOKMARK_FLAG_DP = 16
 
         private const val ARG_URI = "document_uri"
         private const val ARG_INITIAL_PAGE = "initial_page"
