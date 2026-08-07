@@ -51,3 +51,7 @@ Follow these patterns when adding or changing Swift code in this iOS app (SwiftU
 ## Async and timers
 
 - When a `Timer` fires and needs main-thread work, use **`Task { @MainActor in ... }`** (see periodic page save) so UI state updates stay on the main actor.
+
+## Unit tests
+
+- After behavioral changes, follow **`pdfreadert-unit-tests.mdc`**: update or add unit tests in the same task when applicable.

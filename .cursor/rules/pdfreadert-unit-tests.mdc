@@ -1,0 +1,33 @@
+---
+description: After every coding change, check whether unit tests need updates and update them when they do
+alwaysApply: true
+---
+
+# PDFReaderT — keep unit tests in sync
+
+On **every** coding task (feature, bugfix, refactor), before finishing:
+
+1. **Ask**: Did this change behavior, APIs, edge cases, or ViewModel/service logic that tests cover (or should cover)?
+2. **If yes**: Update existing tests and/or add new ones in the same change. Do not leave tests failing or stale.
+3. **If no**: Briefly confirm why (e.g. pure UIKit/PDFKit gesture tweak with no testable seam, docs-only). Prefer extracting a testable helper when logic is non-trivial.
+
+## What to cover
+
+- **View models** (`*ViewModel.swift`): prefer near-complete unit coverage; inject protocols/stores; override test hooks (delays, providers) rather than sleeping on production timers.
+- **Services / calculators / pure helpers**: add or extend tests when behavior changes.
+- **UI-only / UIKit PDFKit wiring**: unit-test only if you extract pure logic; otherwise note that UI/integration tests are out of scope for this step.
+
+## Location and style
+
+- iOS tests live in `PDFReaderT/PDFReaderTTests/` (`@testable import PDFReaderT`).
+- Match existing XCTest + mock patterns in `TestSupport.swift`.
+- Run relevant tests when practical (`xcodebuild test -scheme PDFReaderT …`) after updating them.
+
+## Examples
+
+```text
+✅ Changed pagesRead formula → update assertions / add regression test
+✅ New ViewModel method → add unit tests for success and failure paths
+✅ Fixed PDF tap-to-clear selection in PDFViewer only → no ViewModel test change; note UI-only
+❌ Changed session tracking and skipped tests → not allowed
+```

@@ -755,7 +755,26 @@ private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate
     }
 
     @objc private func handleSingleTap(_ gesture: UITapGestureRecognizer) {
+        // Custom tap gestures block PDFKit's default tap-to-deselect; clear explicitly.
+        if clearTextSelectionIfNeeded() {
+            return
+        }
         onSingleTap?()
+    }
+
+    /// Clears an active text selection and dismisses the highlight/edit menu.
+    /// - Returns: `true` if a selection was cleared (caller should skip other tap actions).
+    @discardableResult
+    private func clearTextSelectionIfNeeded() -> Bool {
+        let hadSelection = hasSelectionText || currentSelection != nil || latestSelection != nil
+        guard hadSelection else { return false }
+
+        menuWorkItem?.cancel()
+        retryWorkItem?.cancel()
+        editInteraction.dismissMenu()
+        clearSelection()
+        latestSelection = nil
+        return true
     }
 
     @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
