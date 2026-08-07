@@ -47,6 +47,21 @@ struct PDFReaderView: View {
                         }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button {
+                                viewModel.requestGoToBookmark()
+                            } label: {
+                                Label(
+                                    String(localized: "pdf_reader.go_to_bookmark"),
+                                    systemImage: "flag.fill"
+                                )
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                        .disabled(uiModel.isSavingBeforeClose)
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
                         Button(String(localized: "pdf_reader.close")) {
                             viewModel.closePDFReader()
                         }
@@ -121,6 +136,22 @@ struct PDFReaderView: View {
                     Text(message)
                 }
             }
+            .overlay(alignment: .bottom) {
+                if let toast = viewModel.toastMessage {
+                    Text(toast)
+                        .font(.subheadline)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.black.opacity(0.78), in: Capsule())
+                        .padding(.bottom, 28)
+                        .padding(.horizontal, 24)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        .accessibilityLabel(toast)
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: viewModel.toastMessage)
         }
         .statusBarHidden(uiModel.isFullScreen)
         .animation(.easeInOut(duration: 0.2), value: uiModel.isFullScreen)
@@ -132,7 +163,7 @@ struct PDFReaderView: View {
             if isLandscape && !uiModel.recentFiles.isEmpty {
                 HStack(alignment: .top, spacing: 24) {
                     VStack(spacing: 16) {
-                        emptyStateCard()
+                        emptyStateCard(hasNoRecentFiles: uiModel.recentFiles.isEmpty)
                         ReadingStatsCard(recentFiles: uiModel.recentFiles)
                             .onTapGesture { viewModel.showingStats = true }
                         InsightsCard(dailyStats: viewModel.dailyStats, sessions: viewModel.recentSessions)
@@ -144,7 +175,7 @@ struct PDFReaderView: View {
                 }
             } else {
                 VStack(spacing: 16) {
-                    emptyStateCard()
+                    emptyStateCard(hasNoRecentFiles: uiModel.recentFiles.isEmpty)
                     ReadingStatsCard(recentFiles: uiModel.recentFiles)
                         .onTapGesture { viewModel.showingStats = true }
                     InsightsCard(dailyStats: viewModel.dailyStats, sessions: viewModel.recentSessions)
@@ -160,13 +191,18 @@ struct PDFReaderView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: isLandscape ? .center : .top)
     }
     
-    private func emptyStateCard() -> some View {
-        ContentUnavailableView(
-            String(localized: "pdf_reader.empty_title"),
-            systemImage: "doc.text",
-            description: Text("pdf_reader.empty_description")
-        )
-        .frame(maxWidth: .infinity)
+    @ViewBuilder
+    private func emptyStateCard(hasNoRecentFiles: Bool) -> some View {
+        if hasNoRecentFiles {
+            ContentUnavailableView(
+                String(localized: "pdf_reader.empty_title"),
+                systemImage: "doc.text",
+                description: Text("pdf_reader.empty_description")
+            )
+            .frame(maxWidth: .infinity)
+        } else {
+            EmptyView()
+        }
     }
     
     private func recentFilesSection(uiModel: PDFReaderViewUIModel) -> some View {
@@ -212,8 +248,10 @@ struct PDFReaderView: View {
             PDFViewer(
                 url: url,
                 initialPage: uiModel.initialPage,
+                documentId: viewModel.currentFileId?.uuidString,
                 currentPage: $viewModel.currentPage,
                 searchNavigation: $viewModel.searchNavigation,
+                goToBookmarkRequest: $viewModel.goToBookmarkRequest,
                 onReadOnlyPDF: {
                     viewModel.presentOKOnlyAlert(
                         titleKey: "pdf_reader.read_only_alert_title",
@@ -234,6 +272,9 @@ struct PDFReaderView: View {
                 },
                 onUserInteraction: {
                     viewModel.onReaderInteraction()
+                },
+                onBookmarkMissing: {
+                    viewModel.showBookmarkMissingToast()
                 }
             )
             .overlay(alignment: .bottomTrailing) {

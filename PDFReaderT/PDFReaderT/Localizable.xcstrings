@@ -184,6 +184,28 @@
     "Key" : {
       "extractionState" : "manual"
     },
+    "pdf_reader.bookmark_flag" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bookmark"
+          }
+        }
+      }
+    },
+    "pdf_reader.bookmark_missing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No bookmark yet. Double-tap the page to add one."
+          }
+        }
+      }
+    },
     "pdf_reader.close" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -191,6 +213,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Close"
+          }
+        }
+      }
+    },
+    "pdf_reader.go_to_bookmark" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to bookmark"
           }
         }
       }

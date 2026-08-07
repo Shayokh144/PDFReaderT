@@ -55,8 +55,11 @@ final class PDFReaderViewModel: ObservableObject {
     @Published var showingInsights = false
     @Published private(set) var dailyStats: [DailyReadingStats] = []
     @Published private(set) var recentSessions: [ReadingSession] = []
+    @Published var goToBookmarkRequest = false
+    @Published private(set) var toastMessage: String?
 
     var saveFlusher: SaveFlusher?
+    private var toastDismissTask: Task<Void, Never>?
     
     private var pageSaveTimer: Timer?
     private var searchDebounceTask: Task<Void, Never>?
@@ -114,6 +117,27 @@ final class PDFReaderViewModel: ObservableObject {
     /// Called by PDFViewer on any touch/scroll/pinch interaction.
     func onReaderInteraction() {
         sessionTracker.onUserInteraction(currentPage: currentPage)
+    }
+
+    /// Asks the PDF viewer to scroll to the saved bookmark (or toast if none).
+    func requestGoToBookmark() {
+        goToBookmarkRequest = true
+    }
+
+    func showBookmarkMissingToast() {
+        showToast(Self.localizedString(for: "pdf_reader.bookmark_missing"))
+    }
+
+    private func showToast(_ message: String) {
+        toastDismissTask?.cancel()
+        toastMessage = message
+        toastDismissTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            if toastMessage == message {
+                toastMessage = nil
+            }
+        }
     }
     
     // MARK: - Search
@@ -212,10 +236,13 @@ final class PDFReaderViewModel: ObservableObject {
         }
         commitReadingTimeIfNeeded()
         if let url = newURL {
-            currentPage = 0
-            currentFileId = nil
-            initialPage = nil
-            saveRecentFile(url)
+            // `openRecentFile` sets `currentFileId` before the URL; skip re-registering
+            // so the same document id (and last page / bookmark) is preserved.
+            if currentFileId == nil {
+                currentPage = 0
+                initialPage = nil
+                saveRecentFile(url)
+            }
         }
     }
     
@@ -341,6 +368,9 @@ final class PDFReaderViewModel: ObservableObject {
         searchText = ""
         searchResults = []
         searchNavigation = nil
+        goToBookmarkRequest = false
+        toastMessage = nil
+        toastDismissTask?.cancel()
         searchDebounceTask?.cancel()
     }
     
