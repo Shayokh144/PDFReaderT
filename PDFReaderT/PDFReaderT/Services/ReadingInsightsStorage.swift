@@ -8,9 +8,18 @@ import OSLog
 
 private let log = AppLog.storage
 
+protocol ReadingInsightsStoring: AnyObject {
+    func loadSessions() -> [ReadingSession]
+    func saveSessions(_ sessions: [ReadingSession])
+    func appendSession(_ session: ReadingSession)
+    func loadDailyStats() -> [DailyReadingStats]
+    func saveDailyStats(_ stats: [DailyReadingStats])
+    func recordSessionInDailyStats(_ session: ReadingSession)
+}
+
 /// Persists reading sessions and daily aggregates as JSON files in Application Support.
 /// Prunes sessions older than 30 days and daily stats older than 90 days on load.
-final class ReadingInsightsStorage {
+final class ReadingInsightsStorage: ReadingInsightsStoring {
 
     private let sessionsFileURL: URL
     private let dailyStatsFileURL: URL
@@ -27,9 +36,14 @@ final class ReadingInsightsStorage {
         return d
     }()
 
-    init() {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = appSupport.appendingPathComponent("ReadingInsights", isDirectory: true)
+    init(directory: URL? = nil) {
+        let dir: URL
+        if let directory {
+            dir = directory
+        } else {
+            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            dir = appSupport.appendingPathComponent("ReadingInsights", isDirectory: true)
+        }
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         sessionsFileURL = dir.appendingPathComponent("sessions.json")
         dailyStatsFileURL = dir.appendingPathComponent("daily_stats.json")

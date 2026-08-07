@@ -64,17 +64,31 @@ final class PDFReaderViewModel: ObservableObject {
     private var pageSaveTimer: Timer?
     private var searchDebounceTask: Task<Void, Never>?
     private let recentFilesStore: RecentFilesStoring
-    private let insightsStorage = ReadingInsightsStorage()
+    private let insightsStorage: ReadingInsightsStoring
     private let sessionTracker: ReadingSessionTracker
     private var pageChangeCancellable: AnyCancellable?
 
     private var readingSessionStart: Date?
     private var readingSessionFileId: UUID?
+
+    /// Toast auto-dismiss delay. Overridable in tests.
+    var toastDurationNanoseconds: UInt64 = 2_000_000_000
+    /// Search debounce delay. Overridable in tests.
+    var searchDebounceNanoseconds: UInt64 = 300_000_000
+    /// Page autosave interval. Overridable in tests.
+    var pageSaveInterval: TimeInterval = 5.0
+    /// Creates bookmark data for a file URL. Overridable in tests.
+    var bookmarkDataProvider: (URL) -> Data? = { $0.bookmarkData() }
+    /// Resolves a human-readable file size. Overridable in tests.
+    var fileSizeProvider: ((URL) -> String)?
     
-    init(recentFilesStore: RecentFilesStoring = UserDefaultsRecentFilesStore()) {
+    init(
+        recentFilesStore: RecentFilesStoring = UserDefaultsRecentFilesStore(),
+        insightsStorage: ReadingInsightsStoring = ReadingInsightsStorage()
+    ) {
         self.recentFilesStore = recentFilesStore
-        let storage = insightsStorage
-        self.sessionTracker = ReadingSessionTracker(storage: storage)
+        self.insightsStorage = insightsStorage
+        self.sessionTracker = ReadingSessionTracker(storage: insightsStorage)
 
         sessionTracker.onSessionRecorded = { [weak self] in
             self?.reloadInsightsData()
@@ -134,7 +148,7 @@ final class PDFReaderViewModel: ObservableObject {
         toastDismissTask?.cancel()
         toastMessage = message
         toastDismissTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            try? await Task.sleep(nanoseconds: toastDurationNanoseconds)
             guard !Task.isCancelled else { return }
             if toastMessage == message {
                 toastMessage = nil
@@ -156,7 +170,7 @@ final class PDFReaderViewModel: ObservableObject {
         guard let url = selectedPDFURL else { return }
         
         searchDebounceTask = Task {
-            try? await Task.sleep(nanoseconds: 300_000_000)
+            try? await Task.sleep(nanoseconds: searchDebounceNanoseconds)
             guard !Task.isCancelled else { return }
             
             let results = await Self.findMatches(query: query, fileURL: url)
@@ -177,11 +191,13 @@ final class PDFReaderViewModel: ObservableObject {
     private nonisolated static func findMatches(query: String, fileURL: URL) async -> [PDFSearchResult] {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                guard fileURL.startAccessingSecurityScopedResource() else {
-                    continuation.resume(returning: [])
-                    return
+                // Non-security-scoped URLs (e.g. app temp files) return false; still readable.
+                let accessed = fileURL.startAccessingSecurityScopedResource()
+                defer {
+                    if accessed {
+                        fileURL.stopAccessingSecurityScopedResource()
+                    }
                 }
-                defer { fileURL.stopAccessingSecurityScopedResource() }
                 
                 guard let document = PDFDocument(url: fileURL) else {
                     continuation.resume(returning: [])
@@ -193,7 +209,11 @@ final class PDFReaderViewModel: ObservableObject {
                 let results: [PDFSearchResult] = selections.enumerated().compactMap { index, selection in
                     guard let page = selection.pages.first else { return nil }
                     let pageIndex = document.index(for: page)
-                    let snippet = buildSnippet(from: selection, on: page, maxLength: 80)
+                    let snippet = Self.buildSnippet(
+                        matchText: selection.string,
+                        pageText: page.string,
+                        maxLength: 80
+                    )
                     return PDFSearchResult(pageIndex: pageIndex, snippet: snippet, matchIndex: index, selection: selection)
                 }
                 
@@ -202,10 +222,10 @@ final class PDFReaderViewModel: ObservableObject {
         }
     }
     
-    private nonisolated static func buildSnippet(from selection: PDFSelection, on page: PDFPage, maxLength: Int) -> String {
-        guard let matchText = selection.string, !matchText.isEmpty,
-              let pageText = page.string else {
-            return selection.string ?? ""
+    /// Builds a short search snippet. Visible for unit tests.
+    nonisolated static func buildSnippet(matchText: String?, pageText: String?, maxLength: Int) -> String {
+        guard let matchText, !matchText.isEmpty, let pageText else {
+            return matchText ?? ""
         }
         
         let flatPageText = pageText.replacingOccurrences(of: "\n", with: " ")
@@ -290,7 +310,7 @@ final class PDFReaderViewModel: ObservableObject {
         updatedFile.readingTimeSeconds += delta
         recentFiles[index] = updatedFile
         saveRecentFilesToUserDefaults()
-        log.debug("\(AppLog.scopePrefix(for: Self.self)) saved reading time +\(delta, privacy: .public)s for file \(updatedFile.name)")
+        log.info("\(AppLog.scopePrefix(for: Self.self)) saved reading time +\(delta)s for file \(updatedFile.name)")
 
         sessionTracker.pauseForBackground(currentPage: currentPage)
     }
@@ -301,7 +321,7 @@ final class PDFReaderViewModel: ObservableObject {
     }
     
     func startPageSaveTimer() {
-        pageSaveTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
+        pageSaveTimer = Timer.scheduledTimer(withTimeInterval: pageSaveInterval, repeats: true) { _ in
             Task { @MainActor in
                 self.saveCurrentPage()
             }
@@ -325,7 +345,7 @@ final class PDFReaderViewModel: ObservableObject {
         recentFiles[index] = updatedFile
         
         saveRecentFilesToUserDefaults()
-        log.debug("\(AppLog.scopePrefix(for: Self.self)) saved current page \(self.currentPage) for file \(updatedFile.name)")
+        log.info("\(AppLog.scopePrefix(for: Self.self)) saved current page \(self.currentPage) for file \(updatedFile.name)")
     }
     
     func openRecentFile(_ file: RecentFile) {
@@ -379,23 +399,22 @@ final class PDFReaderViewModel: ObservableObject {
     }
     
     func saveRecentFile(_ url: URL) {
-        log.debug("\(AppLog.scopePrefix(for: Self.self)) attempting to save recent file at path \(url.path, privacy: .private)")
-        
-        guard url.startAccessingSecurityScopedResource() else {
-            log.error("\(AppLog.scopePrefix(for: Self.self)) failed to access security-scoped resource")
-            return
-        }
-        
+        log.info("\(AppLog.scopePrefix(for: Self.self)) attempting to save recent file at path \(url.path)")
+
+        // Non-security-scoped URLs return false; the file may still be readable.
+        let accessed = url.startAccessingSecurityScopedResource()
         defer {
-            url.stopAccessingSecurityScopedResource()
+            if accessed {
+                url.stopAccessingSecurityScopedResource()
+            }
         }
         
         guard FileManager.default.fileExists(atPath: url.path) else {
-            log.error("\(AppLog.scopePrefix(for: Self.self)) file does not exist at path \(url.path, privacy: .private)")
+            log.error("\(AppLog.scopePrefix(for: Self.self)) file does not exist at path \(url.path)")
             return
         }
         
-        guard let bookmarkData = url.bookmarkData() else {
+        guard let bookmarkData = bookmarkDataProvider(url) else {
             log.error("\(AppLog.scopePrefix(for: Self.self)) could not create bookmark data for selected file")
             return
         }
@@ -404,7 +423,7 @@ final class PDFReaderViewModel: ObservableObject {
         }
         
         let fileName = url.lastPathComponent
-        let fileSize = getFileSize(url)
+        let fileSize = fileSizeProvider?(url) ?? getFileSize(url)
         let preservedReadingTime = recentFiles.first(where: { $0.name == fileName })?.readingTimeSeconds ?? 0
 
         let recentFile = RecentFile(
@@ -438,9 +457,15 @@ final class PDFReaderViewModel: ObservableObject {
         saveRecentFilesToUserDefaults()
     }
     
-    private func getFileSize(_ url: URL) -> String {
+    /// Resolves file-size resource values. Overridable in tests to force failures.
+    var fileSizeResourceValues: (URL) throws -> URLResourceValues = {
+        try $0.resourceValues(forKeys: [.fileSizeKey])
+    }
+
+    /// Visible for unit tests covering size lookup failure paths.
+    func getFileSize(_ url: URL) -> String {
         do {
-            let resources = try url.resourceValues(forKeys: [.fileSizeKey])
+            let resources = try fileSizeResourceValues(url)
             if let fileSize = resources.fileSize {
                 return ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file)
             }

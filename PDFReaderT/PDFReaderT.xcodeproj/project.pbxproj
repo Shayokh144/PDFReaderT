@@ -6,8 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		A10000012E1D400000FEFD29 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0487F3182E1D325700FEFD29 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0487F31F2E1D325700FEFD29;
+			remoteInfo = PDFReaderT;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		0487F3202E1D325700FEFD29 /* PDFReaderT.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PDFReaderT.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000022E1D400000FEFD29 /* PDFReaderTTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PDFReaderTTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +27,22 @@
 			path = PDFReaderT;
 			sourceTree = "<group>";
 		};
+		A10000032E1D400000FEFD29 /* PDFReaderTTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PDFReaderTTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		0487F31D2E1D325700FEFD29 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000042E1D400000FEFD29 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +56,7 @@
 			isa = PBXGroup;
 			children = (
 				0487F3222E1D325700FEFD29 /* PDFReaderT */,
+				A10000032E1D400000FEFD29 /* PDFReaderTTests */,
 				0487F3212E1D325700FEFD29 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				0487F3202E1D325700FEFD29 /* PDFReaderT.app */,
+				A10000022E1D400000FEFD29 /* PDFReaderTTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -70,6 +95,29 @@
 			productReference = 0487F3202E1D325700FEFD29 /* PDFReaderT.app */;
 			productType = "com.apple.product-type.application";
 		};
+		A10000052E1D400000FEFD29 /* PDFReaderTTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A100000A2E1D400000FEFD29 /* Build configuration list for PBXNativeTarget "PDFReaderTTests" */;
+			buildPhases = (
+				A10000062E1D400000FEFD29 /* Sources */,
+				A10000042E1D400000FEFD29 /* Frameworks */,
+				A10000072E1D400000FEFD29 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A10000082E1D400000FEFD29 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A10000032E1D400000FEFD29 /* PDFReaderTTests */,
+			);
+			name = PDFReaderTTests;
+			packageProductDependencies = (
+			);
+			productName = PDFReaderTTests;
+			productReference = A10000022E1D400000FEFD29 /* PDFReaderTTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -82,6 +130,10 @@
 				TargetAttributes = {
 					0487F31F2E1D325700FEFD29 = {
 						CreatedOnToolsVersion = 16.2;
+					};
+					A10000052E1D400000FEFD29 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 0487F31F2E1D325700FEFD29;
 					};
 				};
 			};
@@ -100,12 +152,20 @@
 			projectRoot = "";
 			targets = (
 				0487F31F2E1D325700FEFD29 /* PDFReaderT */,
+				A10000052E1D400000FEFD29 /* PDFReaderTTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		0487F31E2E1D325700FEFD29 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000072E1D400000FEFD29 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +182,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A10000062E1D400000FEFD29 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A10000082E1D400000FEFD29 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0487F31F2E1D325700FEFD29 /* PDFReaderT */;
+			targetProxy = A10000012E1D400000FEFD29 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		0487F32C2E1D325800FEFD29 /* Debug */ = {
@@ -304,6 +379,44 @@
 			};
 			name = Release;
 		};
+		A100000B2E1D400000FEFD29 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8PSF52429N;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = abu.taher.com.PDFReaderTTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PDFReaderT.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PDFReaderT";
+			};
+			name = Debug;
+		};
+		A100000C2E1D400000FEFD29 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8PSF52429N;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = abu.taher.com.PDFReaderTTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PDFReaderT.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PDFReaderT";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -321,6 +434,15 @@
 			buildConfigurations = (
 				0487F32F2E1D325800FEFD29 /* Debug */,
 				0487F3302E1D325800FEFD29 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A100000A2E1D400000FEFD29 /* Build configuration list for PBXNativeTarget "PDFReaderTTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000B2E1D400000FEFD29 /* Debug */,
+				A100000C2E1D400000FEFD29 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

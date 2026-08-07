@@ -13,7 +13,7 @@ private let log = AppLog.viewModel
 @MainActor
 final class ReadingSessionTracker {
 
-    private let storage: ReadingInsightsStorage
+    private let storage: ReadingInsightsStoring
 
     // Active session state
     private var sessionId: UUID?
@@ -38,7 +38,7 @@ final class ReadingSessionTracker {
     /// Called after a session is recorded. The ViewModel uses this to refresh UI.
     var onSessionRecorded: (() -> Void)?
 
-    init(storage: ReadingInsightsStorage = ReadingInsightsStorage()) {
+    init(storage: ReadingInsightsStoring = ReadingInsightsStorage()) {
         self.storage = storage
     }
 

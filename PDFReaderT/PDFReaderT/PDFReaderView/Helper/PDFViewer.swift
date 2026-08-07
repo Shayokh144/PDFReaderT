@@ -16,7 +16,7 @@ final class SaveFlusher {
     private let asyncHandler: (@escaping () -> Void) -> Void
     private let syncHandler: () -> Void
 
-    fileprivate init(
+    init(
         asyncHandler: @escaping (@escaping () -> Void) -> Void,
         syncHandler: @escaping () -> Void
     ) {
