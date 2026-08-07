@@ -15,4 +15,9 @@ struct ReadingSession: Codable, Identifiable {
     var endPage: Int
     /// Active reading time excluding idle gaps (seconds).
     var durationSeconds: TimeInterval
+
+    /// Pages advanced during this session (forward progress only).
+    var pagesRead: Int {
+        max(0, endPage - startPage)
+    }
 }

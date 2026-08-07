@@ -84,7 +84,9 @@ final class PDFReaderViewModel: ObservableObject {
             .dropFirst()
             .removeDuplicates()
             .sink { [weak self] page in
-                self?.sessionTracker.onUserInteraction(currentPage: page)
+                // Page changes alone must not lock startPage — restore-to-last-page
+                // would otherwise count the jump from 0 as "pages read".
+                self?.sessionTracker.onPageChanged(currentPage: page)
             }
     }
     
@@ -260,7 +262,9 @@ final class PDFReaderViewModel: ObservableObject {
 
         if !sessionTracker.hasActiveSession,
            let file = recentFiles.first(where: { $0.id == fid }) {
-            sessionTracker.startSession(documentId: fid, documentName: file.name, page: currentPage)
+            // Prefer initialPage: currentPage is often still 0 until PDFView restores.
+            let page = initialPage ?? currentPage
+            sessionTracker.startSession(documentId: fid, documentName: file.name, page: page)
         } else {
             sessionTracker.resumeFromForeground()
         }

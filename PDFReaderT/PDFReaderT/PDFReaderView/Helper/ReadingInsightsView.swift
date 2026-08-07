@@ -226,7 +226,7 @@ struct ReadingInsightsView: View {
             } else {
                 ForEach(sorted, id: \.key) { name, bookSessions in
                     let totalSec = bookSessions.reduce(0) { $0 + $1.durationSeconds }
-                    let pages = bookSessions.reduce(0) { $0 + max(0, $1.endPage - $1.startPage) }
+                    let pages = bookSessions.reduce(0) { $0 + $1.pagesRead }
                     HStack(spacing: 12) {
                         Image(systemName: "doc.text.fill")
                             .foregroundColor(.green)

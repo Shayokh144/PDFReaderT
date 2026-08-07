@@ -95,7 +95,7 @@ final class ReadingInsightsStorage {
 
         if let idx = stats.firstIndex(where: { $0.dateString == today }) {
             stats[idx].minutesRead += session.durationSeconds / 60.0
-            stats[idx].pagesRead += max(0, session.endPage - session.startPage)
+            stats[idx].pagesRead += session.pagesRead
             if !stats[idx].documentIds.contains(session.documentId) {
                 stats[idx].documentIds.append(session.documentId)
             }
@@ -103,7 +103,7 @@ final class ReadingInsightsStorage {
             let newDay = DailyReadingStats(
                 dateString: today,
                 minutesRead: session.durationSeconds / 60.0,
-                pagesRead: max(0, session.endPage - session.startPage),
+                pagesRead: session.pagesRead,
                 documentIds: [session.documentId]
             )
             stats.append(newDay)

@@ -22,9 +22,9 @@ final class ReadingSessionTracker {
     private var startPage: Int = 0
     private var latestPage: Int = 0
     private var sessionStartTime: Date?
-    /// False until the first real user interaction. The initial async page navigation
-    /// (restoring last-read position) fires a page change that should set startPage
-    /// rather than count as "pages read".
+    /// False until the first real user interaction (tap/scroll/pinch).
+    /// Programmatic page changes (document load + restore-to-last-page) update
+    /// `startPage` while unlocked so restore is not counted as pages read.
     private var startPageLocked = false
 
     // Idle detection: track active segments so idle gaps are excluded
@@ -116,8 +116,28 @@ final class ReadingSessionTracker {
         log.debug("\(AppLog.scopePrefix(for: Self.self)) session resumed from foreground")
     }
 
-    /// Call on any user interaction (page change, tap, scroll). Resets the idle timer
-    /// and resumes tracking if the session was idle.
+    /// Call when the visible page changes, including programmatic navigation
+    /// (document load, restore-to-last-page, search jump). Does not lock startPage.
+    func onPageChanged(currentPage: Int) {
+        guard sessionId != nil else { return }
+        latestPage = currentPage
+        if !startPageLocked {
+            // Follow restore/load until the user actually interacts.
+            startPage = currentPage
+            return
+        }
+
+        // After lock, page turns count as activity for idle detection.
+        if isIdle {
+            activeSegmentStart = Date()
+            isIdle = false
+            log.debug("\(AppLog.scopePrefix(for: Self.self)) resumed from idle at page \(currentPage)")
+        }
+        resetIdleTimer()
+    }
+
+    /// Call on real user interaction (tap, scroll, pinch). Locks startPage and
+    /// resets the idle timer / resumes tracking if the session was idle.
     func onUserInteraction(currentPage: Int) {
         guard sessionId != nil else { return }
 
