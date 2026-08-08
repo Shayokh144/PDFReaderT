@@ -5,17 +5,21 @@ import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import com.example.taher144.pdfreaderlite.app.appContainer
 import com.example.taher144.pdfreaderlite.data.model.ReaderSessionState
+import com.example.taher144.pdfreaderlite.data.repository.ReadingPositionRepository
+import com.example.taher144.pdfreaderlite.data.repository.RecentFilesRepository
 import com.example.taher144.pdfreaderlite.reader.PdfSaveCoordinator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class ReaderViewModel(
-    application: Application
+    application: Application,
+    private val readingPositionRepository: ReadingPositionRepository =
+        application.applicationContext.appContainer.readingPositionRepository,
+    private val recentFilesRepository: RecentFilesRepository =
+        application.applicationContext.appContainer.recentFilesRepository,
+    private val saveCoordinator: PdfSaveCoordinator = PdfSaveCoordinator(),
+    private val elapsedRealtime: () -> Long = { SystemClock.elapsedRealtime() }
 ) : AndroidViewModel(application) {
-    private val appContainer = application.applicationContext.appContainer
-    private val readingPositionRepository = appContainer.readingPositionRepository
-    private val recentFilesRepository = appContainer.recentFilesRepository
-    private val saveCoordinator = PdfSaveCoordinator()
 
     // --- Reading time session tracking ---
     private var sessionDocumentId: String? = null
@@ -81,7 +85,7 @@ class ReaderViewModel(
     fun beginReadingSession(documentId: String) {
         if (documentId.isBlank()) return
         sessionDocumentId = documentId
-        sessionStartElapsed = SystemClock.elapsedRealtime()
+        sessionStartElapsed = elapsedRealtime()
     }
 
     fun commitReadingTimeIfNeeded() {
@@ -89,7 +93,7 @@ class ReaderViewModel(
         val start = sessionStartElapsed
         if (start < 0 || docId.isBlank()) return
 
-        val elapsed = SystemClock.elapsedRealtime() - start
+        val elapsed = elapsedRealtime() - start
         val deltaSeconds = elapsed / 1_000L
         sessionStartElapsed = -1L
         sessionDocumentId = null
@@ -101,7 +105,9 @@ class ReaderViewModel(
         }
     }
 
-    fun setFullScreen(enabled: Boolean) { _isFullScreen.value = enabled }
+    fun setFullScreen(enabled: Boolean) {
+        _isFullScreen.value = enabled
+    }
 
     fun toggleFullScreen() {
         _isFullScreen.value = !_isFullScreen.value

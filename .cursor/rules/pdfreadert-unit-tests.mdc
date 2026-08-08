@@ -20,8 +20,11 @@ On **every** coding task (feature, bugfix, refactor), before finishing:
 ## Location and style
 
 - iOS tests live in `PDFReaderT/PDFReaderTTests/` (`@testable import PDFReaderT`).
-- Match existing XCTest + mock patterns in `TestSupport.swift`.
-- Run relevant tests when practical (`xcodebuild test -scheme PDFReaderT …`) after updating them.
+- Android tests live in `androidPdfReader/app/src/test/` (JUnit4 + coroutines-test + Robolectric for ViewModels).
+- Match existing mock/fake patterns (`TestSupport.swift` on iOS; `ViewModelTestFakes.kt` on Android).
+- Run relevant tests when practical:
+  - iOS: `xcodebuild test -scheme PDFReaderT …`
+  - Android: `./gradlew :app:testDebugUnitTest --tests '…ViewModelTest'`
 
 ## Examples
 

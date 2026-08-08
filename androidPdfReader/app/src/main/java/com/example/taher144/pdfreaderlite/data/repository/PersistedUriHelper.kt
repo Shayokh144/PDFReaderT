@@ -7,7 +7,7 @@ import android.provider.OpenableColumns
 
 class PersistedUriHelper(
     private val context: Context
-) {
+) : PersistedUriAccess {
     fun takePersistableReadPermission(uri: Uri) {
         runCatching {
             context.contentResolver.takePersistableUriPermission(
@@ -20,7 +20,7 @@ class PersistedUriHelper(
     /**
      * Persists read + write access when the picker granted both (see [Intent.FLAG_GRANT_WRITE_URI_PERMISSION]).
      */
-    fun takePersistableReadWritePermission(uri: Uri) {
+    override fun takePersistableReadWritePermission(uri: Uri) {
         runCatching {
             context.contentResolver.takePersistableUriPermission(
                 uri,
@@ -36,7 +36,7 @@ class PersistedUriHelper(
 //        }.getOrDefault(false)
 //    }
 
-    fun canRead(uri: Uri): Boolean {
+    override fun canRead(uri: Uri): Boolean {
         return runCatching {
             // We only need to see if we CAN open the descriptor.
             // We don't need the stream buffers.
@@ -46,11 +46,11 @@ class PersistedUriHelper(
         }.getOrDefault(false)
     }
 
-    fun getDisplayName(uri: Uri): String? {
+    override fun getDisplayName(uri: Uri): String? {
         return queryDocumentColumn(uri, OpenableColumns.DISPLAY_NAME)
     }
 
-    fun getFileSizeBytes(uri: Uri): Long? {
+    override fun getFileSizeBytes(uri: Uri): Long? {
         return queryDocumentColumn(uri, OpenableColumns.SIZE)?.toLongOrNull()
     }
 

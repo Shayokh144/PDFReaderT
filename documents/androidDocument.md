@@ -170,3 +170,61 @@ These are covered by tasks under `androidPdfReader/task/` and are already in the
 | Reading time | 11 | `readingTimeSeconds` on recents |
 | Read aloud (TTS, FGS, speed) | 14 | `readaloud/ReadAloudService`, start/speed dialogs |
 | Bookmark flag | **15** | See **Bookmarks** section above |
+
+---
+
+# Unit tests
+
+## What is covered
+
+| Target | Location | Scope |
+|--------|----------|--------|
+| **`HomeViewModel`** | `app/src/test/.../ui/home/HomeViewModelTest.kt` | Pick PDF, open recent, unreadable/delete paths, events, opening flag, preserve reading time (fakes + Robolectric). |
+| **`ReaderViewModel`** | `app/src/test/.../ui/reader/ReaderViewModelTest.kt` | Page info, fullscreen, search navigation/reset, reading-time session + clock injection, persist progress (sync/async), blank-id guards. |
+| Shared fakes | `app/src/test/.../ui/ViewModelTestFakes.kt` | `FakeRecentFilesRepository`, `FakeReadingPositionRepository`, `FakePersistedUriAccess`, `FakePdfEngine`, clock. |
+| Other unit tests | `PdfTextChunkerTest`, reflection / example tests | Not ViewModel coverage. |
+| Fragments / `PdfView` UI | — | **Not** unit-tested. |
+
+ViewModels take injectable repositories / helpers (defaults still come from `appContainer`) so production `viewModels()` wiring is unchanged.
+
+## How to run
+
+From the Android module:
+
+```bash
+cd PDFReaderT/androidPdfReader
+
+# All unit tests
+./gradlew :app:testDebugUnitTest
+
+# ViewModel suites only
+./gradlew :app:testDebugUnitTest \
+  --tests 'com.example.taher144.pdfreaderlite.ui.home.HomeViewModelTest' \
+  --tests 'com.example.taher144.pdfreaderlite.ui.reader.ReaderViewModelTest'
+```
+
+HTML report: `app/build/reports/tests/testDebugUnitTest/index.html`.
+
+Notes:
+
+- Tests use **Robolectric** with `@Config(sdk = [34])` because the app `targetSdk` is **36**, which current Robolectric may not support as max SDK.
+- `testOptions.unitTests.isIncludeAndroidResources = true` is set in `app/build.gradle.kts`.
+
+Agent convention: keep tests in sync when ViewModel behavior changes (see repo `.cursor/rules/pdfreadert-unit-tests.mdc`).
+
+---
+
+# Missing / not yet implemented (Android)
+
+Relative to iOS and known product gaps:
+
+| Gap | Notes |
+|-----|--------|
+| **Reading Stats / Insights (trends)** | iOS has Task 1 (stats card / progress) and Task 2 (sessions, idle detection, weekly insights UI). Android only tracks cumulative **`readingTimeSeconds`** and resume page—no weekly comparison, streaks, or session idle model. |
+| **Instrumented / UI tests for reader** | No Espresso/Compose UI tests for selection, highlight menu, bookmarks, or read aloud. |
+| **Search vs highlight overlays** | In-document search may call **`setHighlights`** and **replace** user highlight overlays until merging is implemented (see Highlights caveats). |
+| **Broader repository unit tests** | DataStore repos and `PdfSaveCoordinator` are exercised mainly via ViewModel fakes, not dedicated suites. |
+
+## Shipped on Android (for cross-check)
+
+See the feature table above (open/recents, highlights, fullscreen, search, reading time, read aloud, bookmarks).

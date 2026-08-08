@@ -8,12 +8,15 @@ import androidx.lifecycle.viewModelScope
 import com.example.taher144.pdfreaderlite.R
 import com.example.taher144.pdfreaderlite.app.appContainer
 import com.example.taher144.pdfreaderlite.data.model.RecentPdfRecord
+import com.example.taher144.pdfreaderlite.data.repository.PersistedUriAccess
+import com.example.taher144.pdfreaderlite.data.repository.ReadingPositionRepository
+import com.example.taher144.pdfreaderlite.data.repository.RecentFilesRepository
+import com.example.taher144.pdfreaderlite.reader.PdfEngine
 import com.example.taher144.pdfreaderlite.reader.ReaderLaunchRequest
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -29,13 +32,19 @@ sealed interface HomeEvent {
 }
 
 class HomeViewModel(
-    application: Application
+    application: Application,
+    private val recentFilesRepository: RecentFilesRepository =
+        application.applicationContext.appContainer.recentFilesRepository,
+    private val readingPositionRepository: ReadingPositionRepository =
+        application.applicationContext.appContainer.readingPositionRepository,
+    private val persistedUriHelper: PersistedUriAccess =
+        application.applicationContext.appContainer.persistedUriHelper,
+    private val pdfEngine: PdfEngine =
+        application.applicationContext.appContainer.pdfEngine,
+    private val unknownFileNameProvider: () -> String = {
+        application.getString(R.string.pdf_reader_unknown_file_name)
+    }
 ) : AndroidViewModel(application) {
-    private val appContainer = application.applicationContext.appContainer
-    private val recentFilesRepository = appContainer.recentFilesRepository
-    private val readingPositionRepository = appContainer.readingPositionRepository
-    private val persistedUriHelper = appContainer.persistedUriHelper
-    private val pdfEngine = appContainer.pdfEngine
 
     private val isOpeningDocument = MutableStateFlow(false)
     private val _events = MutableSharedFlow<HomeEvent>()
@@ -64,7 +73,7 @@ class HomeViewModel(
                 val now = System.currentTimeMillis()
                 val displayName = persistedUriHelper.getDisplayName(uri)
                     ?: uri.lastPathSegment
-                    ?: getApplication<Application>().getString(R.string.pdf_reader_unknown_file_name)
+                    ?: unknownFileNameProvider()
                 val fileSizeBytes = persistedUriHelper.getFileSizeBytes(uri)
                 val lastPage = readingPositionRepository.get(document.documentId)?.currentPage ?: 0
 

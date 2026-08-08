@@ -116,7 +116,12 @@ The full-screen mode lets the user immerse in the PDF by hiding all chrome (navi
 
 ## Toggling
 
-A `UITapGestureRecognizer` is installed on `HighlightablePDFView`. It is configured so the system's double-tap-to-zoom gesture takes priority (via `gestureRecognizer(_:shouldRequireFailureOf:)`). When the single tap fires, it calls the `onSingleTap` closure on the representable, which invokes `PDFReaderViewModel.toggleFullScreen()`.
+A `UITapGestureRecognizer` is installed on `HighlightablePDFView`. It is configured so the system's double-tap-to-zoom gesture takes priority (via `gestureRecognizer(_:shouldRequireFailureOf:)`), and so bookmark **double-tap** wins over fullscreen.
+
+When the single tap fires:
+
+1. If text is selected, the app **clears the selection** and dismisses the edit menu (custom taps block PDFKit’s default tap-to-deselect). Fullscreen is **not** toggled in that case.
+2. Otherwise it calls `onSingleTap` → `PDFReaderViewModel.toggleFullScreen()`.
 
 The view model exposes `@Published var isFullScreen` (default `false`). The UI model snapshot includes it so the view can react declaratively.
 
@@ -256,3 +261,62 @@ flowchart TD
     V --> W[Block main thread until pending saves finish]
     W --> X[Highlights persisted before force-quit is possible]
 ```
+
+---
+
+# Unit tests
+
+## What is covered
+
+| Target | Location | Scope |
+|--------|----------|--------|
+| **`PDFReaderViewModel`** | `PDFReaderT/PDFReaderTTests/` | Unit tests with mocks/fakes (`TestSupport.swift`). Aims for **full ViewModel coverage** (alerts, recents, sessions, search debounce hooks, close/flush, toast, page save, insights reload). |
+| PDFKit / `PDFViewer` gestures | — | **Not** unit-tested (UIKit/PDFKit wiring). Prefer UI/integration tests if added later. |
+| Services (`ReadingSessionTracker`, storage, calculators) | — | No dedicated suite yet; covered only where exercised through the ViewModel. |
+
+Test conventions for agents: `.cursor/rules/pdfreadert-unit-tests.mdc` (update tests when behavior changes).
+
+## How to run
+
+From the Xcode project directory:
+
+```bash
+cd PDFReaderT/PDFReaderT
+xcodebuild test \
+  -scheme PDFReaderT \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -enableCodeCoverage YES
+```
+
+Or in Xcode: open `PDFReaderT.xcodeproj` → scheme **PDFReaderT** → **Product → Test** (⌘U). Coverage is enabled on the shared scheme’s Test action.
+
+Useful filters:
+
+```bash
+# ViewModel tests only
+xcodebuild test -scheme PDFReaderT \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
+  -only-testing:PDFReaderTTests/PDFReaderViewModelTests
+```
+
+---
+
+# Missing / not yet implemented (iOS)
+
+Relative to the Android module and product backlog:
+
+| Gap | Notes |
+|-----|--------|
+| **Read aloud (TTS)** | Android has task 14 (`ReadAloudService`, FGS, speed). iOS has no equivalent. |
+| **Dedicated service/unit tests** | Session tracker, insights storage, bookmark storage, and `InsightsCalculator` lack their own test targets. |
+| **UI / snapshot / XCUITest** | No automated UI tests for PDFViewer (selection clear, bookmark gestures, highlight menu). |
+| **Search ↔ highlight overlay merge** | Less of an Android-style `setHighlights` conflict on iOS (annotations live on the page), but temporary search marks and user highlights are still separate concerns. |
+
+## Shipped on iOS (for cross-check)
+
+- Open PDF / security-scoped bookmarks / recents / resume page  
+- Highlights + coalesced file save / flush on close & background  
+- Full-screen single-tap (+ clear text selection on tap)  
+- Text search sheet  
+- Bookmark flag (double-tap / long-press / go-to)  
+- Reading Stats (task 1) and Reading Insights / sessions (task 2)  
