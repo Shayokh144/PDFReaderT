@@ -275,6 +275,9 @@ struct PDFReaderView: View {
                 },
                 onBookmarkMissing: {
                     viewModel.showBookmarkMissingToast()
+                },
+                onPageCountAvailable: { count in
+                    viewModel.updateTotalPages(count)
                 }
             )
             .overlay(alignment: .bottomTrailing) {

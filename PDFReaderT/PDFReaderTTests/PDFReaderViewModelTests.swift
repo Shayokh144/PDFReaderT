@@ -198,6 +198,7 @@ final class PDFReaderViewModelTests: XCTestCase {
         sut.openRecentFile(file)
         XCTAssertEqual(sut.currentFileId, file.id)
         XCTAssertEqual(sut.initialPage, 1)
+        XCTAssertEqual(sut.totalPages, file.totalPages)
         XCTAssertEqual(sut.selectedPDFURL, URL.resolveBookmark(file.bookmarkData))
     }
 
@@ -392,6 +393,33 @@ final class PDFReaderViewModelTests: XCTestCase {
         XCTAssertNil(sut.searchNavigation)
         XCTAssertFalse(sut.goToBookmarkRequest)
         XCTAssertNil(sut.toastMessage)
+        XCTAssertEqual(sut.currentPage, 0)
+        XCTAssertEqual(sut.totalPages, 0)
+    }
+
+    func testUpdateTotalPages_setsCounterAndPersistsOnCurrentFile() throws {
+        sut.saveRecentFile(tempPDFURL)
+        store.savedFiles.removeAll()
+        sut.updateTotalPages(12)
+        XCTAssertEqual(sut.totalPages, 12)
+        XCTAssertEqual(sut.recentFiles.first?.totalPages, 12)
+        XCTAssertEqual(store.savedFiles.last?.first?.totalPages, 12)
+    }
+
+    func testUpdateTotalPages_sameCount_doesNotResave() throws {
+        sut.saveRecentFile(tempPDFURL)
+        let existingCount = sut.recentFiles.first?.totalPages ?? 0
+        XCTAssertGreaterThan(existingCount, 0)
+        store.savedFiles.removeAll()
+        sut.updateTotalPages(existingCount)
+        XCTAssertEqual(sut.totalPages, existingCount)
+        XCTAssertTrue(store.savedFiles.isEmpty)
+    }
+
+    func testUpdateTotalPages_zero_isIgnored() {
+        sut.totalPages = 3
+        sut.updateTotalPages(0)
+        XCTAssertEqual(sut.totalPages, 3)
     }
 
     func testClosePDFReader_withFlusher_waitsThenClears() {

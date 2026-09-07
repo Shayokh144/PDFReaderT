@@ -263,6 +263,7 @@ final class PDFReaderViewModel: ObservableObject {
             if currentFileId == nil {
                 currentPage = 0
                 initialPage = nil
+                totalPages = 0
                 saveRecentFile(url)
             }
         }
@@ -347,6 +348,17 @@ final class PDFReaderViewModel: ObservableObject {
         saveRecentFilesToUserDefaults()
         log.info("\(AppLog.scopePrefix(for: Self.self)) saved current page \(self.currentPage) for file \(updatedFile.name)")
     }
+
+    /// Updates the on-screen page counter and persists the count on the current recent file.
+    func updateTotalPages(_ count: Int) {
+        guard count > 0 else { return }
+        totalPages = count
+        guard let fileId = currentFileId,
+              let index = recentFiles.firstIndex(where: { $0.id == fileId }),
+              recentFiles[index].totalPages != count else { return }
+        recentFiles[index].totalPages = count
+        saveRecentFilesToUserDefaults()
+    }
     
     func openRecentFile(_ file: RecentFile) {
         guard let url = URL.resolveBookmark(file.bookmarkData) else {
@@ -360,6 +372,7 @@ final class PDFReaderViewModel: ObservableObject {
         markFileOpened(file.id)
         initialPage = file.lastPageNumber
         currentFileId = file.id
+        totalPages = file.totalPages
         selectedPDFURL = url
     }
 
@@ -396,6 +409,8 @@ final class PDFReaderViewModel: ObservableObject {
         selectedPDFURL = nil
         currentFileId = nil
         initialPage = nil
+        currentPage = 0
+        totalPages = 0
         saveFlusher = nil
         isFullScreen = false
         isSearching = false
@@ -428,14 +443,17 @@ final class PDFReaderViewModel: ObservableObject {
             log.error("\(AppLog.scopePrefix(for: Self.self)) could not create bookmark data for selected file")
             return
         }
-        if let document = PDFDocument(url: url) {
-            totalPages = document.pageCount
-        }
-        
         let fileName = url.lastPathComponent
         let fileSize = fileSizeProvider?(url) ?? getFileSize(url)
         let existing = recentFiles.first(where: { $0.name == fileName })
         let now = Date()
+        var resolvedPageCount = existing?.totalPages ?? 0
+        if let document = PDFDocument(url: url), document.pageCount > 0 {
+            resolvedPageCount = document.pageCount
+        }
+        if resolvedPageCount > 0 {
+            totalPages = resolvedPageCount
+        }
 
         let recentFile = RecentFile(
             id: UUID(),
@@ -445,7 +463,7 @@ final class PDFReaderViewModel: ObservableObject {
             lastOpenedAt: now,
             fileSize: fileSize,
             lastPageNumber: 0,
-            totalPages: totalPages,
+            totalPages: resolvedPageCount,
             readingTimeSeconds: existing?.readingTimeSeconds ?? 0
         )
         

@@ -48,6 +48,7 @@ struct PDFViewer: UIViewRepresentable {
     let onSingleTap: () -> Void
     let onUserInteraction: () -> Void
     let onBookmarkMissing: () -> Void
+    let onPageCountAvailable: (Int) -> Void
 
     init(
         url: URL,
@@ -61,7 +62,8 @@ struct PDFViewer: UIViewRepresentable {
         onSaveFlusherReady: @escaping (SaveFlusher) -> Void = { _ in },
         onSingleTap: @escaping () -> Void = {},
         onUserInteraction: @escaping () -> Void = {},
-        onBookmarkMissing: @escaping () -> Void = {}
+        onBookmarkMissing: @escaping () -> Void = {},
+        onPageCountAvailable: @escaping (Int) -> Void = { _ in }
     ) {
         self.url = url
         self.initialPage = initialPage
@@ -75,6 +77,7 @@ struct PDFViewer: UIViewRepresentable {
         self.onSingleTap = onSingleTap
         self.onUserInteraction = onUserInteraction
         self.onBookmarkMissing = onBookmarkMissing
+        self.onPageCountAvailable = onPageCountAvailable
     }
 
     func makeCoordinator() -> Coordinator {
@@ -142,6 +145,7 @@ struct PDFViewer: UIViewRepresentable {
             coordinator.loadedDocumentURL = url
             coordinator.resetScaleTracking()
             coordinator.fitDocumentToVisibleBounds(in: pdfView, force: true)
+            coordinator.reportPageCount(from: document)
 
             // Navigate to the initial page if specified
             if let initialPage = initialPage,
@@ -188,6 +192,14 @@ extension PDFViewer {
             self.bookmarkStore = bookmarkStore
         }
 
+        func reportPageCount(from document: PDFDocument) {
+            let count = document.pageCount
+            guard count > 0 else { return }
+            DispatchQueue.main.async { [weak self] in
+                self?.parent.onPageCountAvailable(count)
+            }
+        }
+
         func configure(pdfView: PDFView) {
             self.pdfView = pdfView
 
@@ -217,6 +229,7 @@ extension PDFViewer {
                         return
                     }
                     let pageIndex = document.index(for: currentPDFPage)
+                    self.reportPageCount(from: document)
                     DispatchQueue.main.async { [weak self] in
                         self?.parent.currentPage = pageIndex
                     }
