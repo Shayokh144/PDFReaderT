@@ -201,6 +201,38 @@ final class PDFReaderViewModelTests: XCTestCase {
         XCTAssertEqual(sut.selectedPDFURL, URL.resolveBookmark(file.bookmarkData))
     }
 
+    func testOpenRecentFile_updatesLastOpenedAtWithoutChangingDateAdded() throws {
+        let added = Date(timeIntervalSinceNow: -3600)
+        let older = try TestPDFFactory.makeRecentFile(from: tempPDFURL, lastPage: 1)
+        let file = RecentFile(
+            id: older.id,
+            name: older.name,
+            bookmarkData: older.bookmarkData,
+            dateAdded: added,
+            lastOpenedAt: added,
+            fileSize: older.fileSize,
+            lastPageNumber: older.lastPageNumber,
+            totalPages: older.totalPages
+        )
+        let other = RecentFile(
+            id: UUID(),
+            name: "other.pdf",
+            bookmarkData: Data([1]),
+            dateAdded: Date(),
+            fileSize: "1 KB",
+            lastPageNumber: 0,
+            totalPages: 1
+        )
+        sut.recentFiles = [other, file]
+        let beforeOpen = Date()
+        sut.openRecentFile(file)
+
+        XCTAssertEqual(sut.recentFiles.first?.id, file.id)
+        XCTAssertEqual(sut.recentFiles.first?.dateAdded, added)
+        XCTAssertGreaterThanOrEqual(sut.recentFiles.first?.lastOpenedAt ?? .distantPast, beforeOpen)
+        XCTAssertFalse(store.savedFiles.isEmpty)
+    }
+
     func testOpenRecentFile_invalidBookmark_removesFileAndShowsAlert() {
         let file = RecentFile(
             id: UUID(),
@@ -563,5 +595,23 @@ final class PDFReaderViewModelTests: XCTestCase {
         sut.fileSizeProvider = { _ in "42 bytes" }
         sut.saveRecentFile(tempPDFURL)
         XCTAssertEqual(sut.recentFiles.first?.fileSize, "42 bytes")
+    }
+
+    func testRecentFile_missingLastOpenedAt_fallsBackToDateAdded() throws {
+        let added = Date(timeIntervalSince1970: 1_700_000_000)
+        let payload: [String: Any] = [
+            "id": UUID().uuidString,
+            "name": "legacy.pdf",
+            "bookmarkData": Data([1, 2, 3]).base64EncodedString(),
+            "dateAdded": ISO8601DateFormatter().string(from: added),
+            "fileSize": "1 KB",
+            "lastPageNumber": 0,
+            "totalPages": 1
+        ]
+        let data = try JSONSerialization.data(withJSONObject: payload)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let file = try decoder.decode(RecentFile.self, from: data)
+        XCTAssertEqual(file.lastOpenedAt, file.dateAdded)
     }
 }

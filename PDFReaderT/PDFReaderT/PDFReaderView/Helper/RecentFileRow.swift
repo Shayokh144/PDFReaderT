@@ -46,7 +46,7 @@ struct RecentFileRow: View {
     }
 
     /// Stable caption without live second-by-second updates from `Text(_:style: .relative)`.
-    private func formattedDateAdded(_ date: Date) -> String {
+    private func formattedLastOpened(_ date: Date) -> String {
         let secondsAgo = Date().timeIntervalSince(date)
         if secondsAgo < 60 {
             return String(localized: "pdf_reader.recent_file_date_added_just_now")
@@ -127,7 +127,7 @@ struct RecentFileRow: View {
                         }
                         
                         Spacer()
-                        Text(formattedDateAdded(file.dateAdded))
+                        Text(formattedLastOpened(file.lastOpenedAt))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }

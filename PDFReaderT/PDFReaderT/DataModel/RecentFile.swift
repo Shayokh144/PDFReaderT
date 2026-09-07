@@ -14,6 +14,7 @@ struct RecentFile: Codable, Identifiable {
         case name
         case bookmarkData
         case dateAdded
+        case lastOpenedAt
         case fileSize
         case lastPageNumber
         case totalPages
@@ -24,6 +25,8 @@ struct RecentFile: Codable, Identifiable {
     let name: String
     let bookmarkData: Data
     let dateAdded: Date
+    /// Last time the file was opened in the reader.
+    var lastOpenedAt: Date
     let fileSize: String
     var lastPageNumber: Int
     var totalPages: Int
@@ -35,6 +38,7 @@ struct RecentFile: Codable, Identifiable {
         name: String,
         bookmarkData: Data,
         dateAdded: Date,
+        lastOpenedAt: Date? = nil,
         fileSize: String,
         lastPageNumber: Int,
         totalPages: Int,
@@ -44,6 +48,7 @@ struct RecentFile: Codable, Identifiable {
         self.name = name
         self.bookmarkData = bookmarkData
         self.dateAdded = dateAdded
+        self.lastOpenedAt = lastOpenedAt ?? dateAdded
         self.fileSize = fileSize
         self.lastPageNumber = lastPageNumber
         self.totalPages = totalPages
@@ -56,6 +61,7 @@ struct RecentFile: Codable, Identifiable {
         name = try container.decode(String.self, forKey: .name)
         bookmarkData = try container.decode(Data.self, forKey: .bookmarkData)
         dateAdded = try container.decode(Date.self, forKey: .dateAdded)
+        lastOpenedAt = try container.decodeIfPresent(Date.self, forKey: .lastOpenedAt) ?? dateAdded
         fileSize = try container.decode(String.self, forKey: .fileSize)
         lastPageNumber = try container.decode(Int.self, forKey: .lastPageNumber)
         totalPages = try container.decode(Int.self, forKey: .totalPages)
@@ -68,6 +74,7 @@ struct RecentFile: Codable, Identifiable {
         try container.encode(name, forKey: .name)
         try container.encode(bookmarkData, forKey: .bookmarkData)
         try container.encode(dateAdded, forKey: .dateAdded)
+        try container.encode(lastOpenedAt, forKey: .lastOpenedAt)
         try container.encode(fileSize, forKey: .fileSize)
         try container.encode(lastPageNumber, forKey: .lastPageNumber)
         try container.encode(totalPages, forKey: .totalPages)

@@ -357,9 +357,19 @@ final class PDFReaderViewModel: ObservableObject {
             )
             return
         }
+        markFileOpened(file.id)
         initialPage = file.lastPageNumber
         currentFileId = file.id
         selectedPDFURL = url
+    }
+
+    private func markFileOpened(_ fileId: UUID) {
+        guard let index = recentFiles.firstIndex(where: { $0.id == fileId }) else { return }
+        var updatedFile = recentFiles[index]
+        updatedFile.lastOpenedAt = Date()
+        recentFiles.remove(at: index)
+        recentFiles.insert(updatedFile, at: 0)
+        saveRecentFilesToUserDefaults()
     }
     
     func closePDFReader() {
@@ -424,17 +434,19 @@ final class PDFReaderViewModel: ObservableObject {
         
         let fileName = url.lastPathComponent
         let fileSize = fileSizeProvider?(url) ?? getFileSize(url)
-        let preservedReadingTime = recentFiles.first(where: { $0.name == fileName })?.readingTimeSeconds ?? 0
+        let existing = recentFiles.first(where: { $0.name == fileName })
+        let now = Date()
 
         let recentFile = RecentFile(
             id: UUID(),
             name: fileName,
             bookmarkData: bookmarkData,
-            dateAdded: Date(),
+            dateAdded: existing?.dateAdded ?? now,
+            lastOpenedAt: now,
             fileSize: fileSize,
             lastPageNumber: 0,
             totalPages: totalPages,
-            readingTimeSeconds: preservedReadingTime
+            readingTimeSeconds: existing?.readingTimeSeconds ?? 0
         )
         
         currentFileId = recentFile.id
@@ -480,7 +492,7 @@ final class PDFReaderViewModel: ObservableObject {
             case .noStoredData:
                 break
             case .loaded(let files):
-                recentFiles = files
+                recentFiles = files.sorted { $0.lastOpenedAt > $1.lastOpenedAt }
             case .decodeFailed(let error):
                 log.error("\(AppLog.scopePrefix(for: Self.self)) error loading recent files: \(error.localizedDescription)")
         }
