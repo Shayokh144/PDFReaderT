@@ -13,13 +13,23 @@ import kotlinx.coroutines.flow.StateFlow
 
 class ReaderViewModel(
     application: Application,
-    private val readingPositionRepository: ReadingPositionRepository =
-        application.applicationContext.appContainer.readingPositionRepository,
-    private val recentFilesRepository: RecentFilesRepository =
-        application.applicationContext.appContainer.recentFilesRepository,
-    private val saveCoordinator: PdfSaveCoordinator = PdfSaveCoordinator(),
-    private val elapsedRealtime: () -> Long = { SystemClock.elapsedRealtime() }
+    private val readingPositionRepository: ReadingPositionRepository,
+    private val recentFilesRepository: RecentFilesRepository,
+    private val saveCoordinator: PdfSaveCoordinator,
+    private val elapsedRealtime: () -> Long,
 ) : AndroidViewModel(application) {
+
+    /**
+     * Required by [androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory]
+     * (`viewModels()` / `activityViewModels()`). Kotlin default args alone do not emit this JVM ctor.
+     */
+    constructor(application: Application) : this(
+        application,
+        application.applicationContext.appContainer.readingPositionRepository,
+        application.applicationContext.appContainer.recentFilesRepository,
+        PdfSaveCoordinator(),
+        { SystemClock.elapsedRealtime() },
+    )
 
     // --- Reading time session tracking ---
     private var sessionDocumentId: String? = null

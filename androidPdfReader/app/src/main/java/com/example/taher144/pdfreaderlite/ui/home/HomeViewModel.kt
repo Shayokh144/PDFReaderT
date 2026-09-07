@@ -33,18 +33,25 @@ sealed interface HomeEvent {
 
 class HomeViewModel(
     application: Application,
-    private val recentFilesRepository: RecentFilesRepository =
-        application.applicationContext.appContainer.recentFilesRepository,
-    private val readingPositionRepository: ReadingPositionRepository =
-        application.applicationContext.appContainer.readingPositionRepository,
-    private val persistedUriHelper: PersistedUriAccess =
-        application.applicationContext.appContainer.persistedUriHelper,
-    private val pdfEngine: PdfEngine =
-        application.applicationContext.appContainer.pdfEngine,
-    private val unknownFileNameProvider: () -> String = {
-        application.getString(R.string.pdf_reader_unknown_file_name)
-    }
+    private val recentFilesRepository: RecentFilesRepository,
+    private val readingPositionRepository: ReadingPositionRepository,
+    private val persistedUriHelper: PersistedUriAccess,
+    private val pdfEngine: PdfEngine,
+    private val unknownFileNameProvider: () -> String,
 ) : AndroidViewModel(application) {
+
+    /**
+     * Required by [androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory]
+     * (`viewModel()` / `viewModels()`). Kotlin default args alone do not emit this JVM ctor.
+     */
+    constructor(application: Application) : this(
+        application,
+        application.applicationContext.appContainer.recentFilesRepository,
+        application.applicationContext.appContainer.readingPositionRepository,
+        application.applicationContext.appContainer.persistedUriHelper,
+        application.applicationContext.appContainer.pdfEngine,
+        { application.getString(R.string.pdf_reader_unknown_file_name) },
+    )
 
     private val isOpeningDocument = MutableStateFlow(false)
     private val _events = MutableSharedFlow<HomeEvent>()
