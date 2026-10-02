@@ -261,6 +261,8 @@ extension PDFViewer {
 
             highlightablePDFView.highlightMenuTitle = String(
                 localized: "pdf_reader.highlight_menu_title")
+            highlightablePDFView.defineMenuTitle = String(
+                localized: "pdf_reader.define_menu_title")
             highlightablePDFView.bookmarkFlagAccessibilityLabel = String(
                 localized: "pdf_reader.bookmark_flag")
             highlightablePDFView.onHighlightSelection = { [weak self, weak pdfView] selection in
@@ -654,6 +656,7 @@ private final class SimultaneousGestureDelegate: NSObject, UIGestureRecognizerDe
 private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate {
     var onHighlightSelection: ((PDFSelection) -> Void)?
     var highlightMenuTitle: String = "Highlight"
+    var defineMenuTitle: String = "Define"
     var latestSelection: PDFSelection?
     var onLayoutChanged: ((HighlightablePDFView) -> Void)?
     var onViewportChanged: (() -> Void)?
@@ -713,7 +716,9 @@ private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate
         if action == #selector(UIResponderStandardEditActions.copy(_:)) {
             return hasSelectionText
         }
-        if action == NSSelectorFromString("_define:") {
+        if action == NSSelectorFromString("_define:")
+            || action == NSSelectorFromString("_lookup:")
+        {
             return false
         }
         return super.canPerformAction(action, withSender: sender)
@@ -1010,14 +1015,30 @@ private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate
     ) -> UIMenu? {
         guard hasSelectionText else { return nil }
 
+        var children = PDFSelectionMenu.removingSystemLookup(from: suggestedActions)
+
+        if let term = defineTermFromSelection,
+            UIReferenceLibraryViewController.dictionaryHasDefinition(forTerm: term)
+        {
+            let defineAction = UIAction(
+                title: defineMenuTitle,
+                image: UIImage(systemName: "character.book.closed"),
+                identifier: PDFSelectionMenu.defineActionIdentifier
+            ) { [weak self] _ in
+                self?.presentDefine(for: term)
+            }
+            children.append(defineAction)
+        }
+
         let highlightAction = UIAction(
             title: highlightMenuTitle,
             image: UIImage(systemName: "highlighter")
         ) { [weak self] _ in
             self?.highlight(nil)
         }
+        children.append(highlightAction)
 
-        return UIMenu(children: suggestedActions + [highlightAction])
+        return UIMenu(children: children)
     }
 
     func editMenuInteraction(
@@ -1050,10 +1071,40 @@ private final class HighlightablePDFView: PDFView, UIEditMenuInteractionDelegate
         return !selectedText.isEmpty
     }
 
+    private var defineTermFromSelection: String? {
+        guard let selectedText = (latestSelection ?? currentSelection)?.string else {
+            return nil
+        }
+        return PDFWordSelection.defineTerm(from: selectedText)
+    }
+
     @objc func highlight(_ sender: Any?) {
         guard let selection = latestSelection ?? currentSelection else {
             return
         }
         onHighlightSelection?(selection)
+    }
+
+    private func presentDefine(for term: String) {
+        let dictionaryViewController = UIReferenceLibraryViewController(term: term)
+        dictionaryViewController.modalPresentationStyle = .pageSheet
+        guard let presenter = nearestViewController() else {
+            log.warning(
+                "\(AppLog.scopePrefix(for: HighlightablePDFView.self)) missing presenter for Define"
+            )
+            return
+        }
+        presenter.present(dictionaryViewController, animated: true)
+    }
+
+    private func nearestViewController() -> UIViewController? {
+        var responder: UIResponder? = self
+        while let current = responder {
+            if let viewController = current as? UIViewController {
+                return viewController
+            }
+            responder = current.next
+        }
+        return nil
     }
 }

@@ -294,6 +294,17 @@
         }
       }
     },
+    "pdf_reader.define_menu_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Define"
+          }
+        }
+      }
+    },
     "pdf_reader.highlight_menu_title" : {
       "extractionState" : "manual",
       "localizations" : {
