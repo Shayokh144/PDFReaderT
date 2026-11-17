@@ -37,6 +37,9 @@
     <string name="pdf_reader_read_aloud_no_text">This PDF has no readable text</string>
     <string name="pdf_reader_read_aloud_tts_unavailable">Text-to-speech isn\'t available on this device. Install a TTS engine in Settings.</string>
     <string name="pdf_reader_read_aloud_language_unsupported">English text-to-speech voice data is missing. Install a voice pack in Settings.</string>
+    <string name="pdf_reader_read_aloud_language_unsupported_bengali">Bengali text-to-speech voice data is missing. Download a Bengali voice pack in Settings to read this PDF.</string>
+    <string name="pdf_reader_read_aloud_download_voice_title">Voice Data Required</string>
+    <string name="pdf_reader_read_aloud_download_voice">Download Voice</string>
     <string name="pdf_reader_read_aloud_open_failed">Couldn\'t open this PDF for reading aloud.</string>
     <string name="pdf_reader_read_aloud_switch_document">Stop reading the current PDF and start this one?</string>
     <string name="pdf_reader_read_aloud_channel_name">Read Aloud</string>

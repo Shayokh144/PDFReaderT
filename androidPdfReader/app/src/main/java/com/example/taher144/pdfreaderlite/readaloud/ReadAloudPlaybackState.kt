@@ -24,7 +24,8 @@ sealed class ReadAloudPlaybackState {
 
     data class Error(
         val reason: Reason,
-        val documentId: String? = null
+        val documentId: String? = null,
+        val languageCode: String? = null
     ) : ReadAloudPlaybackState() {
         enum class Reason {
             NO_TEXT,

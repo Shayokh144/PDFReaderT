@@ -6,7 +6,8 @@ package com.example.taher144.pdfreaderlite.readaloud
  */
 object PdfTextChunker {
     private val paragraphSplit = Regex("\\n\\s*\\n+")
-    private val sentenceSplit = Regex("(?<=[.!?])\\s+")
+    // Splits on sentence boundaries: standard Western (.!?) and Bengali danda / double danda (। ॥).
+    private val sentenceSplit = Regex("(?<=[.!?\\u0964\\u0965])\\s+")
 
     fun chunkPageText(
         pageIndex: Int,

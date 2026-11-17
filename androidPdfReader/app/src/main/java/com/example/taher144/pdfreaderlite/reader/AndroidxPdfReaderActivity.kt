@@ -396,13 +396,18 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
         if (errorKey == lastHandledErrorKey) return
         lastHandledErrorKey = errorKey
 
+        val isBengali = state.languageCode?.equals("bn", ignoreCase = true) == true
         val messageRes = when (state.reason) {
             ReadAloudPlaybackState.Error.Reason.NO_TEXT ->
                 R.string.pdf_reader_read_aloud_no_text
             ReadAloudPlaybackState.Error.Reason.TTS_UNAVAILABLE ->
                 R.string.pdf_reader_read_aloud_tts_unavailable
             ReadAloudPlaybackState.Error.Reason.LANGUAGE_UNSUPPORTED ->
-                R.string.pdf_reader_read_aloud_language_unsupported
+                if (isBengali) {
+                    R.string.pdf_reader_read_aloud_language_unsupported_bengali
+                } else {
+                    R.string.pdf_reader_read_aloud_language_unsupported
+                }
             ReadAloudPlaybackState.Error.Reason.OPEN_FAILED ->
                 R.string.pdf_reader_read_aloud_open_failed
         }
@@ -410,15 +415,30 @@ class AndroidxPdfReaderActivity : AppCompatActivity(), ReaderResumeLoadingContro
         if (state.reason == ReadAloudPlaybackState.Error.Reason.TTS_UNAVAILABLE ||
             state.reason == ReadAloudPlaybackState.Error.Reason.LANGUAGE_UNSUPPORTED
         ) {
-            MaterialAlertDialogBuilder(this)
+            val positiveButtonRes = if (isBengali) {
+                R.string.pdf_reader_read_aloud_download_voice
+            } else {
+                android.R.string.ok
+            }
+
+            val builder = MaterialAlertDialogBuilder(this)
                 .setMessage(messageRes)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    runCatching {
+                .setPositiveButton(positiveButtonRes) { _, _ ->
+                    val openedInstall = runCatching {
                         startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
+                    }.isSuccess
+                    if (!openedInstall) {
+                        runCatching {
+                            startActivity(Intent("com.android.settings.TTS_SETTINGS"))
+                        }
                     }
                 }
                 .setNegativeButton(android.R.string.cancel, null)
-                .show()
+
+            if (isBengali) {
+                builder.setTitle(R.string.pdf_reader_read_aloud_download_voice_title)
+            }
+            builder.show()
         } else {
             Toast.makeText(this, messageRes, Toast.LENGTH_LONG).show()
         }

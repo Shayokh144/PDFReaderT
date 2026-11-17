@@ -51,4 +51,13 @@ class PdfTextChunkerTest {
     fun chunkPageText_emptyReturnsEmpty() {
         assertTrue(PdfTextChunker.chunkPageText(0, "   ", 1000).isEmpty())
     }
+
+    @Test
+    fun chunkPageText_splitsOnBengaliDandaBoundaries() {
+        val text = "প্রথম বাক্যটি এখানে শেষ। দ্বিতীয় বাক্যটি শুরু হয়েছে।"
+        val chunks = PdfTextChunker.chunkPageText(0, text, maxLength = 35)
+        assertEquals(2, chunks.size)
+        assertEquals("প্রথম বাক্যটি এখানে শেষ।", chunks[0].text)
+        assertEquals("দ্বিতীয় বাক্যটি শুরু হয়েছে।", chunks[1].text)
+    }
 }

@@ -64,6 +64,7 @@ class ReadAloudService : Service() {
     private var documentTitle: String = ""
     private var totalPages: Int = 0
     private var maxSpeechLength: Int = DEFAULT_MAX_SPEECH_LENGTH
+    private var currentLocale: Locale = ReadAloudLanguageDetector.DEFAULT_LOCALE
 
     private var pageChunks: List<ReadAloudChunk> = emptyList()
     private var currentPageIndex: Int = 0
@@ -193,12 +194,6 @@ class ReadAloudService : Service() {
                 return@launch
             }
 
-            val languageOk = configureLanguage()
-            if (!languageOk) {
-                failAndStop(ReadAloudPlaybackState.Error.Reason.LANGUAGE_UNSUPPORTED, id)
-                return@launch
-            }
-
             maxSpeechLength = (TextToSpeech.getMaxSpeechInputLength() - 100)
                 .coerceAtLeast(MIN_CHUNK_LENGTH)
 
@@ -235,6 +230,28 @@ class ReadAloudService : Service() {
             val hasText = extractor.hasAnyReadableText(opened, currentPageIndex)
             if (!hasText) {
                 failAndStop(ReadAloudPlaybackState.Error.Reason.NO_TEXT, id)
+                return@launch
+            }
+
+            var sampleText = extractor.extractPageText(opened, currentPageIndex)
+            if (sampleText.isBlank()) {
+                val scanLimit = minOf(opened.pageCount, currentPageIndex + 5)
+                for (p in currentPageIndex until scanLimit) {
+                    val txt = extractor.extractPageText(opened, p)
+                    if (txt.isNotBlank()) {
+                        sampleText = txt
+                        break
+                    }
+                }
+            }
+            val detectedLocale = ReadAloudLanguageDetector.detectLanguage(sampleText)
+            val languageOk = configureLanguage(detectedLocale)
+            if (!languageOk) {
+                failAndStop(
+                    ReadAloudPlaybackState.Error.Reason.LANGUAGE_UNSUPPORTED,
+                    id,
+                    languageCode = detectedLocale.language
+                )
                 return@launch
             }
 
@@ -360,12 +377,60 @@ class ReadAloudService : Service() {
         }
     }
 
-    private fun configureLanguage(): Boolean {
+    private fun configureLanguage(targetLocale: Locale = currentLocale): Boolean {
         val engine = tts ?: return false
-        val result = engine.setLanguage(Locale.US)
-        if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+
+        val candidateLocales = if (targetLocale.language.equals("bn", ignoreCase = true)) {
+            listOf(
+                Locale.forLanguageTag("bn-BD"),
+                Locale.forLanguageTag("bn-IN"),
+                Locale.forLanguageTag("bn")
+            )
+        } else {
+            listOf(targetLocale, Locale.US, Locale.ENGLISH)
+        }
+
+        var chosenLocale: Locale? = null
+        var isMissingData = false
+
+        for (candidate in candidateLocales) {
+            val status = engine.isLanguageAvailable(candidate)
+            if (status >= TextToSpeech.LANG_AVAILABLE) {
+                chosenLocale = candidate
+                isMissingData = false
+                break
+            } else if (status == TextToSpeech.LANG_MISSING_DATA && chosenLocale == null) {
+                chosenLocale = candidate
+                isMissingData = true
+            }
+        }
+
+        val localeToSet = chosenLocale ?: targetLocale
+        val setResult = engine.setLanguage(localeToSet)
+
+        if (setResult == TextToSpeech.LANG_MISSING_DATA || isMissingData) {
+            Log.w(TAG, "TTS missing voice data for locale: $localeToSet")
+            currentLocale = localeToSet
             return false
         }
+        if (setResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+            Log.w(TAG, "TTS does not support locale: $localeToSet")
+            currentLocale = localeToSet
+            return false
+        }
+
+        currentLocale = localeToSet
+
+        runCatching {
+            val bestVoice = ReadAloudVoiceSelector.selectBestVoice(engine.voices, localeToSet)
+            if (bestVoice != null) {
+                engine.voice = bestVoice
+                Log.d(TAG, "Selected TTS voice: ${bestVoice.name} (quality=${bestVoice.quality})")
+            }
+        }.onFailure { e ->
+            Log.w(TAG, "Failed to select custom voice, using default", e)
+        }
+
         speechRate = speechRateStore.getRate()
         engine.setSpeechRate(speechRate)
         return true
@@ -509,8 +574,16 @@ class ReadAloudService : Service() {
         override fun onStop() = stopReading()
     }
 
-    private fun failAndStop(reason: ReadAloudPlaybackState.Error.Reason, id: String?) {
-        val error = ReadAloudPlaybackState.Error(reason = reason, documentId = id)
+    private fun failAndStop(
+        reason: ReadAloudPlaybackState.Error.Reason,
+        id: String?,
+        languageCode: String? = null
+    ) {
+        val error = ReadAloudPlaybackState.Error(
+            reason = reason,
+            documentId = id,
+            languageCode = languageCode
+        )
         publishState(error)
         resetPlaybackInternal(keepForeground = false)
         // Briefly keep service so UI can observe the error, then stop.
